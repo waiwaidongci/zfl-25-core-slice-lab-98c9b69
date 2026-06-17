@@ -800,6 +800,9 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, slice.observations || []);
       }
       if (req.method === "POST") {
+        if (slice.status !== "观察") {
+          return sendJson(res, 400, { error: ["切片进入观察步骤后才能归档观察结果"] });
+        }
         const input = await body(req);
         const lithology = (input.lithology || "").trim();
         const minerals = (input.minerals || "").trim();
