@@ -631,6 +631,43 @@ const page = `<!doctype html>
     .csv-import-result.error h3 { color: var(--danger); }
     .csv-import-result ul { margin: 8px 0 0; padding-left: 20px; }
     .csv-import-result li { font-size: 13px; margin: 3px 0; }
+    .stats-overview { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+    .stats-kpi { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; }
+    .stats-kpi strong { display:block; font-size:28px; color:var(--accent); }
+    .stats-kpi span { font-size:12px; color:var(--muted); }
+    .stats-section { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:14px; }
+    .stats-section h2 { margin:0 0 12px; font-size:16px; }
+    .stats-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .stats-table th, .stats-table td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); }
+    .stats-table th { background:#f5f8f0; font-weight:600; color:var(--stone); position:sticky; top:0; }
+    .stats-table tr:hover td { background:#fafcf6; }
+    .stats-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .stats-bar-wrap { background:#eef1ea; border-radius:4px; height:18px; position:relative; min-width:60px; }
+    .stats-bar { background:var(--accent); border-radius:4px; height:100%; transition:width 0.3s; }
+    .stats-bar-label { position:absolute; right:6px; top:0; line-height:18px; font-size:11px; color:var(--ink); font-weight:600; }
+    .stats-backlog-cell { display:inline-block; min-width:22px; text-align:center; padding:2px 6px; border-radius:4px; font-weight:600; font-size:12px; }
+    .stats-backlog-zero { background:#eef1ea; color:var(--muted); }
+    .stats-backlog-low { background:#edf5e8; color:var(--accent); }
+    .stats-backlog-mid { background:#fff3cd; color:#856404; }
+    .stats-backlog-high { background:var(--warn-bg); color:var(--danger); }
+    .stats-timing-scroll { max-height:420px; overflow-y:auto; }
+    .stats-step-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .stats-step-label { width:50px; font-weight:600; color:var(--stone); font-size:13px; flex-shrink:0; }
+    .stats-step-bar-wrap { flex:1; }
+    .stats-step-value { width:80px; text-align:right; font-size:13px; color:var(--ink); flex-shrink:0; }
+    .stats-progress-zero { background:#eef1ea; color:var(--muted); }
+    .stats-progress-low { background:#edf5e8; color:var(--accent); }
+    .stats-progress-mid { background:#fff3cd; color:#856404; }
+    .stats-progress-done { background:#d4edda; color:#155724; }
+    .stats-expand-icon { cursor:pointer; font-size:14px; color:var(--accent); font-weight:700; user-select:none; }
+    .stats-timing-main:hover td { background:#f0f4ec; }
+    .stats-step-detail-row td { padding:0 !important; border-bottom:1px solid var(--line); }
+    .stats-step-detail-wrap { padding:12px 16px 12px 44px; background:#fafcf7; }
+    .stats-inner-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .stats-inner-table th, .stats-inner-table td { padding:6px 10px; text-align:left; border-bottom:1px solid #eef1ea; }
+    .stats-inner-table th { color:var(--stone); font-weight:600; background:#f0f4ec; }
+    .stats-inner-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .stats-step-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; vertical-align:middle; }
   </style>
 </head>
 <body>
@@ -644,6 +681,7 @@ const page = `<!doctype html>
         <button type="button" class="view-tab active" data-view="cards">样本卡片</button>
         <button type="button" class="view-tab" data-view="workbench">实验室工作台</button>
         <button type="button" class="view-tab" data-view="deliveries">历史交付包</button>
+        <button type="button" class="view-tab" data-view="stats">制片耗时统计</button>
       </div>
       <button id="reload">刷新</button>
     </div>
@@ -785,6 +823,41 @@ const page = `<!doctype html>
         </div>
         <div class="result-count" id="deliveries-count"></div>
         <div class="deliveries-list" id="deliveries"></div>
+      </div>
+      <div id="view-stats" class="view-content">
+        <div class="filter-panel">
+          <h2>耗时统计筛选</h2>
+          <div class="filter-row">
+            <div>
+              <label>项目</label>
+              <select id="stats-filter-project"><option value="">全部项目</option></select>
+            </div>
+            <div>
+              <label>负责人</label>
+              <select id="stats-filter-owner"><option value="">全部负责人</option></select>
+            </div>
+          </div>
+          <div class="filter-actions">
+            <button type="button" class="secondary" id="clear-stats-filters">清除筛选</button>
+          </div>
+        </div>
+        <div class="stats-overview" id="stats-overview"></div>
+        <div class="stats-section">
+          <h2>样本维度耗时汇总</h2>
+          <div id="stats-sample-timings"></div>
+        </div>
+        <div class="stats-section">
+          <h2>各工序平均停留时间</h2>
+          <div id="stats-step-avg"></div>
+        </div>
+        <div class="stats-section">
+          <h2>样本切片耗时明细</h2>
+          <div id="stats-slice-timings"></div>
+        </div>
+        <div class="stats-section">
+          <h2>负责人任务积压</h2>
+          <div id="stats-owner-backlog"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -979,11 +1052,21 @@ const page = `<!doctype html>
         document.querySelector("#view-deliveries").classList.add("active");
         document.querySelector("#view-cards").classList.remove("active");
         document.querySelector("#view-workbench").classList.remove("active");
+        document.querySelector("#view-stats").classList.remove("active");
         renderDeliveries();
+      } else if (view === "stats") {
+        viewSamplesArea.style.display = "none";
+        form.style.display = "none";
+        document.querySelector("#view-deliveries").classList.remove("active");
+        document.querySelector("#view-cards").classList.remove("active");
+        document.querySelector("#view-workbench").classList.remove("active");
+        document.querySelector("#view-stats").classList.add("active");
+        loadAndRenderStats();
       } else {
         viewSamplesArea.style.display = "";
         form.style.display = "";
         document.querySelector("#view-deliveries").classList.remove("active");
+        document.querySelector("#view-stats").classList.remove("active");
         document.querySelectorAll(".view-content").forEach(content => {
           content.classList.toggle("active", content.id === "view-" + view);
         });
@@ -1480,6 +1563,188 @@ const page = `<!doctype html>
       }).join("");
     }
 
+    let statsData = null;
+    const statsFilterFields = ["project", "owner"];
+
+    function getStatsFilters() {
+      const f = {};
+      statsFilterFields.forEach(field => {
+        const el = document.querySelector("#stats-filter-" + field);
+        if (el && el.value) f[field] = el.value;
+      });
+      return f;
+    }
+
+    function populateStatsFilterOptions(data) {
+      const projectSel = document.querySelector("#stats-filter-project");
+      const ownerSel = document.querySelector("#stats-filter-owner");
+      if (projectSel && data) {
+        const current = projectSel.value;
+        projectSel.innerHTML = '<option value="">全部项目</option>' + data.projects.map(v => '<option value="' + v + '">' + v + '</option>').join("");
+        projectSel.value = current;
+      }
+      if (ownerSel && data) {
+        const current = ownerSel.value;
+        ownerSel.innerHTML = '<option value="">全部负责人</option>' + data.owners.map(v => '<option value="' + v + '">' + v + '</option>').join("");
+        ownerSel.value = current;
+      }
+    }
+
+    async function loadAndRenderStats() {
+      const filters = getStatsFilters();
+      const params = new URLSearchParams();
+      if (filters.project) params.set("project", filters.project);
+      if (filters.owner) params.set("owner", filters.owner);
+      const queryStr = params.toString() ? "?" + params.toString() : "";
+      try {
+        statsData = await api("/api/stats/time-analysis" + queryStr);
+        populateStatsFilterOptions(statsData);
+        renderStats(statsData);
+      } catch (err) {
+        document.querySelector("#stats-overview").innerHTML = '<div class="empty">统计数据加载失败：' + (err.message || "未知错误") + '</div>';
+      }
+    }
+
+    function formatHours(h) {
+      if (h < 1) return Math.round(h * 60) + "分钟";
+      if (h < 24) return h.toFixed(1) + "小时";
+      return (h / 24).toFixed(1) + "天";
+    }
+
+    function renderStats(data) {
+      const timings = data.sliceTimings || [];
+      const sampleTimings = data.sampleTimings || [];
+      const stepAvgs = data.stepAverages || [];
+      const backlog = data.ownerBacklog || [];
+
+      const totalSlices = timings.length;
+      const completedSlices = timings.filter(t => t.isComplete).length;
+      const validTimings = timings.filter(t => t.totalHours > 0);
+      const avgTotalHours = validTimings.length > 0 ? validTimings.reduce((s, t) => s + t.totalHours, 0) / validTimings.length : 0;
+      const maxTotalHours = validTimings.length > 0 ? Math.max(...validTimings.map(t => t.totalHours)) : 0;
+
+      document.querySelector("#stats-overview").innerHTML =
+        '<div class="stats-kpi"><strong>' + totalSlices + '</strong><span>切片总数</span></div>' +
+        '<div class="stats-kpi"><strong>' + completedSlices + '</strong><span>已完成观察</span></div>' +
+        '<div class="stats-kpi"><strong>' + formatHours(avgTotalHours) + '</strong><span>平均制片耗时</span></div>' +
+        '<div class="stats-kpi"><strong>' + formatHours(maxTotalHours) + '</strong><span>最长制片耗时</span></div>';
+
+      const sortedSampleTimings = [...sampleTimings].sort((a, b) => b.totalHours - a.totalHours);
+      document.querySelector("#stats-sample-timings").innerHTML = sortedSampleTimings.length
+        ? '<div class="stats-timing-scroll"><table class="stats-table"><thead><tr><th>样本编号</th><th>项目</th><th>负责人</th><th>钻孔/箱号</th><th>深度</th><th>切片数</th><th>已完成</th><th>最早日志</th><th>最近日志</th><th>制片总耗时</th><th>状态</th><th>备注</th></tr></thead><tbody>' +
+          sortedSampleTimings.map(st => {
+            const hasData = !!st.firstAt;
+            const completePct = st.sliceCount > 0 ? Math.round(st.completedSlices / st.sliceCount * 100) : 0;
+            let progressCls = "stats-progress-zero";
+            if (completePct === 100) progressCls = "stats-progress-done";
+            else if (completePct >= 50) progressCls = "stats-progress-mid";
+            else if (completePct > 0) progressCls = "stats-progress-low";
+            return '<tr>' +
+              '<td><b>' + st.sampleId + '</b></td>' +
+              '<td>' + st.project + '</td>' +
+              '<td>' + st.owner + '</td>' +
+              '<td>' + (st.borehole || '') + '/' + (st.coreBox || '') + '</td>' +
+              '<td>' + (st.depth || '') + '</td>' +
+              '<td class="num">' + st.sliceCount + '</td>' +
+              '<td class="num"><span class="stats-backlog-cell ' + progressCls + '">' + st.completedSlices + '/' + st.sliceCount + '</span></td>' +
+              '<td>' + (hasData ? formatObsDate(st.firstAt) : '<span class="meta">—</span>') + '</td>' +
+              '<td>' + (hasData ? formatObsDate(st.lastAt) : '<span class="meta">—</span>') + '</td>' +
+              '<td class="num">' + (hasData && st.totalHours > 0 ? (st.isComplete ? formatHours(st.totalHours) : '<span style="color:var(--danger);">' + formatHours(st.totalHours) + ' (进行中)</span>') : '<span class="meta">—</span>') + '</td>' +
+              '<td><span class="pill">' + st.status + '</span></td>' +
+              '<td>' + (st.note ? '<span class="meta">' + st.note + '</span>' : '') + '</td>' +
+              '</tr>';
+          }).join("") +
+          '</tbody></table></div>'
+        : '<div class="empty">暂无样本汇总数据</div>';
+
+      const maxAvg = Math.max(...stepAvgs.map(s => s.avgHours), 1);
+      document.querySelector("#stats-step-avg").innerHTML = stepAvgs.map(s => {
+        const pct = (s.avgHours / maxAvg * 100).toFixed(1);
+        return '<div class="stats-step-row">' +
+          '<div class="stats-step-label">' + s.step + '</div>' +
+          '<div class="stats-step-bar-wrap"><div class="stats-bar-wrap"><div class="stats-bar" style="width:' + pct + '%"></div></div></div>' +
+          '<div class="stats-step-value">' + (s.count > 0 ? formatHours(s.avgHours) + ' <span class="meta" style="font-size:11px;">(' + s.count + '条)</span>' : '<span class="meta">无数据</span>') + '</div>' +
+          '</div>';
+      }).join("");
+
+      const sortedTimings = [...timings].sort((a, b) => b.totalHours - a.totalHours);
+      document.querySelector("#stats-slice-timings").innerHTML = sortedTimings.length
+        ? '<div class="stats-timing-scroll"><table class="stats-table"><thead><tr><th style="width:28px;"></th><th>切片编号</th><th>样本编号</th><th>项目</th><th>负责人</th><th>方法</th><th>当前步骤</th><th>开始时间</th><th>最近步骤</th><th>日志数</th><th>制片耗时</th><th>备注</th></tr></thead><tbody>' +
+          sortedTimings.map(t => {
+            const isComplete = !!t.isComplete;
+            const hasData = !!t.firstAt;
+            const hasDetails = t.stepDetails && t.stepDetails.length > 0;
+            const expandIcon = hasDetails ? '<span class="stats-expand-icon" data-slice-expand="' + t.sliceId + '">▸</span>' : '<span class="meta">—</span>';
+            let mainRow = '<tr class="stats-timing-main' + (hasDetails ? ' stats-expandable' : '') + '" data-slice-id="' + t.sliceId + '">' +
+              '<td>' + expandIcon + '</td>' +
+              '<td><b>' + t.sliceId + '</b></td>' +
+              '<td>' + t.sampleId + '</td>' +
+              '<td>' + t.project + '</td>' +
+              '<td>' + t.owner + '</td>' +
+              '<td>' + t.method + '</td>' +
+              '<td><span class="pill">' + t.status + '</span></td>' +
+              '<td>' + (hasData ? formatObsDate(t.firstAt) : '<span class="meta">—</span>') + '</td>' +
+              '<td>' + (t.lastLogAt ? formatObsDate(t.lastLogAt) : '<span class="meta">—</span>') + '</td>' +
+              '<td class="num">' + t.logsCount + '</td>' +
+              '<td class="num">' + (hasData ? (isComplete ? formatHours(t.totalHours) : '<span style="color:var(--danger);">' + formatHours(t.totalHours) + ' (进行中)</span>') : '<span class="meta">—</span>') + '</td>' +
+              '<td>' + (t.note ? '<span class="meta">' + t.note + '</span>' : '') + '</td>' +
+              '</tr>';
+            let detailRow = '';
+            if (hasDetails) {
+              detailRow = '<tr class="stats-step-detail-row" id="detail-' + t.sliceId + '" style="display:none;"><td colspan="12"><div class="stats-step-detail-wrap"><table class="stats-inner-table"><thead><tr><th>步骤</th><th>→ 下一工序</th><th>开始时间</th><th>结束时间</th><th>停留时间</th></tr></thead><tbody>' +
+                t.stepDetails.map(d => {
+                  const dwellH = d.dwellHours;
+                  let dwellColor = '';
+                  if (dwellH >= 48) dwellColor = ' style="color:var(--danger);"';
+                  else if (dwellH >= 24) dwellColor = ' style="color:#856404;"';
+                  return '<tr>' +
+                    '<td><span class="stats-step-dot"></span>' + d.from + '</td>' +
+                    '<td>' + (d.to || '—') + '</td>' +
+                    '<td>' + formatObsDate(d.fromAt) + '</td>' +
+                    '<td>' + formatObsDate(d.toAt) + '</td>' +
+                    '<td class="num"' + dwellColor + '>' + formatHours(dwellH) + '</td>' +
+                    '</tr>';
+                }).join("") +
+                '</tbody></table></div></td></tr>';
+            }
+            return mainRow + detailRow;
+          }).join("") +
+          '</tbody></table></div>'
+        : '<div class="empty">暂无切片耗时数据</div>';
+
+      document.querySelectorAll(".stats-expandable").forEach(row => {
+        row.addEventListener("click", function() {
+          const sliceId = this.dataset.sliceId;
+          const detailRow = document.getElementById("detail-" + sliceId);
+          const icon = this.querySelector(".stats-expand-icon");
+          if (detailRow) {
+            const isVisible = detailRow.style.display !== "none";
+            detailRow.style.display = isVisible ? "none" : "table-row";
+            if (icon) icon.textContent = isVisible ? "▸" : "▾";
+          }
+        });
+        row.style.cursor = "pointer";
+      });
+
+      document.querySelector("#stats-owner-backlog").innerHTML = backlog.length
+        ? '<table class="stats-table"><thead><tr><th>负责人</th><th>切片总数</th>' + steps.map(s => '<th>' + s + '</th>').join("") + '<th>已完成</th></tr></thead><tbody>' +
+          backlog.map(row => {
+            const cells = steps.map(step => {
+              const count = row[step] || 0;
+              let cls = "stats-backlog-zero";
+              if (count >= 5) cls = "stats-backlog-high";
+              else if (count >= 3) cls = "stats-backlog-mid";
+              else if (count > 0) cls = "stats-backlog-low";
+              return '<td class="num"><span class="stats-backlog-cell ' + cls + '">' + count + '</span></td>';
+            }).join("");
+            const backlogTotal = steps.reduce((sum, step) => sum + (row[step] || 0), 0);
+            const completedCount = Math.max(0, row.total - backlogTotal);
+            return '<tr><td><b>' + row.owner + '</b></td><td class="num">' + row.total + '</td>' + cells + '<td class="num"><span class="stats-backlog-cell ' + (completedCount > 0 ? 'stats-backlog-low' : 'stats-backlog-zero') + '">' + completedCount + '</span></td></tr>';
+          }).join("") +
+          '</tbody></table>'
+        : '<div class="empty">暂无负责人积压数据</div>';
+    }
+
     async function load(){
       try {
         [samples, deliveries] = await Promise.all([
@@ -1540,6 +1805,17 @@ const page = `<!doctype html>
         if (el) el.value = "";
       });
       renderDeliveries();
+    };
+    statsFilterFields.forEach(field => {
+      const el = document.querySelector("#stats-filter-" + field);
+      if (el) el.addEventListener("change", () => { loadAndRenderStats(); });
+    });
+    document.querySelector("#clear-stats-filters").onclick = () => {
+      statsFilterFields.forEach(field => {
+        const el = document.querySelector("#stats-filter-" + field);
+        if (el) el.value = "";
+      });
+      loadAndRenderStats();
     };
     document.querySelector("#reload").onclick = load;
     document.querySelectorAll(".view-tab").forEach(tab => {
@@ -2242,6 +2518,260 @@ const server = http.createServer(async (req, res) => {
       } catch (err) {
         return sendJson(res, 500, { error: "导入失败：" + err.message });
       }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/stats/time-analysis") {
+      const projectFilter = url.searchParams.get("project") || "";
+      const ownerFilter = url.searchParams.get("owner") || "";
+      let filtered = db.samples;
+      if (projectFilter) filtered = filtered.filter(s => s.project === projectFilter);
+      if (ownerFilter) filtered = filtered.filter(s => s.owner === ownerFilter);
+
+      const now = Date.now();
+      const allSliceTimings = [];
+      const stepDwellSums = {};
+      const stepDwellCounts = {};
+      const ownerBacklog = {};
+      const stepIndexMap = {};
+      taskSteps.forEach((step, idx) => {
+        stepDwellSums[step] = 0;
+        stepDwellCounts[step] = 0;
+        stepIndexMap[step] = idx;
+      });
+
+      function safeParseDate(isoStr) {
+        if (!isoStr) return null;
+        try {
+          const t = new Date(isoStr).getTime();
+          return isNaN(t) ? null : t;
+        } catch {
+          return null;
+        }
+      }
+
+      const sampleTimingsMap = {};
+
+      filtered.forEach(sample => {
+        if (!sample.slices || !Array.isArray(sample.slices)) return;
+
+        if (!sampleTimingsMap[sample.id]) {
+          sampleTimingsMap[sample.id] = {
+            sampleId: sample.id,
+            project: sample.project,
+            owner: sample.owner,
+            borehole: sample.borehole,
+            coreBox: sample.coreBox,
+            depth: sample.depth,
+            status: sample.status,
+            sliceCount: 0,
+            completedSlices: 0,
+            firstAt: null,
+            lastAt: null,
+            totalHours: 0,
+            isComplete: false,
+            note: null
+          };
+        }
+        const st = sampleTimingsMap[sample.id];
+
+        sample.slices.forEach(slice => {
+          const rawLogs = slice.logs || [];
+          if (!Array.isArray(rawLogs) || rawLogs.length === 0) {
+            const sliceStatus = slice.status || taskSteps[0];
+            if (!ownerBacklog[sample.owner]) {
+              ownerBacklog[sample.owner] = { owner: sample.owner, total: 0 };
+              taskSteps.forEach(step => { ownerBacklog[sample.owner][step] = 0; });
+            }
+            ownerBacklog[sample.owner].total++;
+            if (stepIndexMap[sliceStatus] !== undefined) {
+              ownerBacklog[sample.owner][sliceStatus]++;
+            }
+            allSliceTimings.push({
+              sampleId: sample.id,
+              sliceId: slice.id,
+              project: sample.project,
+              owner: sample.owner,
+              method: slice.method,
+              status: sliceStatus,
+              firstStep: null,
+              lastStep: null,
+              firstAt: null,
+              lastAt: null,
+              totalHours: 0,
+              totalDays: 0,
+              logsCount: 0,
+              stepDetails: [],
+              note: "无日志数据，无法计算耗时"
+            });
+            st.sliceCount++;
+            if (!st.note) st.note = "部分切片无日志数据";
+            return;
+          }
+
+          const parsedLogs = rawLogs
+            .map(log => ({ ...log, _time: safeParseDate(log.at) }))
+            .filter(log => log._time !== null && log.step)
+            .sort((a, b) => a._time - b._time);
+
+          if (parsedLogs.length === 0) {
+            const sliceStatus = slice.status || taskSteps[0];
+            if (!ownerBacklog[sample.owner]) {
+              ownerBacklog[sample.owner] = { owner: sample.owner, total: 0 };
+              taskSteps.forEach(step => { ownerBacklog[sample.owner][step] = 0; });
+            }
+            ownerBacklog[sample.owner].total++;
+            if (stepIndexMap[sliceStatus] !== undefined) {
+              ownerBacklog[sample.owner][sliceStatus]++;
+            }
+            allSliceTimings.push({
+              sampleId: sample.id,
+              sliceId: slice.id,
+              project: sample.project,
+              owner: sample.owner,
+              method: slice.method,
+              status: sliceStatus,
+              firstStep: null,
+              lastStep: null,
+              firstAt: null,
+              lastAt: null,
+              totalHours: 0,
+              totalDays: 0,
+              logsCount: 0,
+              stepDetails: [],
+              note: "日志日期无效，无法计算耗时"
+            });
+            st.sliceCount++;
+            if (!st.note) st.note = "部分切片日志日期无效";
+            return;
+          }
+
+          const firstLog = parsedLogs[0];
+          const lastLog = parsedLogs[parsedLogs.length - 1];
+          const firstTime = firstLog._time;
+          const isComplete = lastLog.step === "观察";
+          const lastTime = isComplete ? lastLog._time : now;
+
+          const totalTimeMs = lastTime - firstTime;
+
+          const timing = {
+            sampleId: sample.id,
+            sliceId: slice.id,
+            project: sample.project,
+            owner: sample.owner,
+            method: slice.method,
+            status: slice.status || lastLog.step,
+            firstStep: firstLog.step,
+            lastStep: lastLog.step,
+            firstAt: firstLog.at,
+            lastLogAt: lastLog.at,
+            lastAt: isComplete ? lastLog.at : new Date(now).toISOString(),
+            totalHours: totalTimeMs / (1000 * 60 * 60),
+            totalDays: totalTimeMs / (1000 * 60 * 60 * 24),
+            logsCount: parsedLogs.length,
+            stepDetails: [],
+            isComplete: isComplete
+          };
+
+          for (let i = 0; i < parsedLogs.length; i++) {
+            const currentStep = parsedLogs[i].step;
+            const currentTime = parsedLogs[i]._time;
+            let nextTime;
+            let nextStep;
+            if (i < parsedLogs.length - 1) {
+              nextTime = parsedLogs[i + 1]._time;
+              nextStep = parsedLogs[i + 1].step;
+            } else if (!isComplete) {
+              nextTime = now;
+              nextStep = "(进行中)";
+            } else {
+              continue;
+            }
+
+            const dwellMs = nextTime - currentTime;
+            const dwellHours = dwellMs / (1000 * 60 * 60);
+
+            timing.stepDetails.push({
+              from: currentStep,
+              to: nextStep,
+              dwellHours,
+              fromAt: parsedLogs[i].at,
+              toAt: i < parsedLogs.length - 1 ? parsedLogs[i + 1].at : new Date(now).toISOString()
+            });
+
+            if (stepDwellSums[currentStep] !== undefined) {
+              stepDwellSums[currentStep] += dwellHours;
+              stepDwellCounts[currentStep]++;
+            }
+          }
+
+          allSliceTimings.push(timing);
+
+          st.sliceCount++;
+          if (isComplete) st.completedSlices++;
+          if (firstTime && (!st.firstAt || firstTime < new Date(st.firstAt).getTime())) {
+            st.firstAt = firstLog.at;
+          }
+          if (isComplete) {
+            if (!st.lastAt || lastLog._time > new Date(st.lastAt).getTime()) {
+              st.lastAt = lastLog.at;
+            }
+          } else {
+            const nowIso = new Date(now).toISOString();
+            if (!st.lastAt || now > new Date(st.lastAt).getTime()) {
+              st.lastAt = nowIso;
+            }
+          }
+
+          if (!ownerBacklog[sample.owner]) {
+            ownerBacklog[sample.owner] = { owner: sample.owner, total: 0 };
+            taskSteps.forEach(step => { ownerBacklog[sample.owner][step] = 0; });
+          }
+          ownerBacklog[sample.owner].total++;
+          const currentStatus = slice.status || lastLog.step;
+          const currentStepIndex = stepIndexMap[currentStatus] !== undefined ? stepIndexMap[currentStatus] : 0;
+          if (!isComplete) {
+            if (stepIndexMap[currentStatus] !== undefined) {
+              ownerBacklog[sample.owner][currentStatus]++;
+            } else {
+              ownerBacklog[sample.owner][taskSteps[currentStepIndex]]++;
+            }
+          }
+        });
+      });
+
+      const sampleTimings = Object.values(sampleTimingsMap);
+      sampleTimings.forEach(st => {
+        if (st.firstAt && st.lastAt) {
+          const ms = new Date(st.lastAt).getTime() - new Date(st.firstAt).getTime();
+          st.totalHours = ms / (1000 * 60 * 60);
+          st.isComplete = st.completedSlices === st.sliceCount;
+        } else if (st.sliceCount === 0) {
+          st.note = "无切片数据";
+        } else if (!st.note) {
+          st.note = "日志数据不足，无法计算耗时";
+        }
+      });
+
+      const stepAverages = taskSteps.map(step => ({
+        step,
+        avgHours: stepDwellCounts[step] > 0 ? stepDwellSums[step] / stepDwellCounts[step] : 0,
+        avgDays: stepDwellCounts[step] > 0 ? (stepDwellSums[step] / stepDwellCounts[step]) / 24 : 0,
+        count: stepDwellCounts[step]
+      }));
+
+      const backlogList = Object.values(ownerBacklog);
+
+      const projects = [...new Set(db.samples.map(s => s.project))].sort();
+      const owners = [...new Set(db.samples.map(s => s.owner))].sort();
+
+      return sendJson(res, 200, {
+        sliceTimings: allSliceTimings,
+        sampleTimings,
+        stepAverages,
+        ownerBacklog: backlogList,
+        projects,
+        owners
+      });
     }
 
     sendJson(res, 404, { error: "not_found" });
