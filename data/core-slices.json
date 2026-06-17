@@ -1,6 +1,100 @@
 {
   "samples": [
     {
+      "id": "CORE-1781695217883-g18a",
+      "project": "另一个项目",
+      "borehole": "ZK-TEST2",
+      "coreBox": "BX-TEST2",
+      "depth": "200.0-200.5m",
+      "owner": "测试员2",
+      "status": "制片中",
+      "delivery": "未交付",
+      "slices": [
+        {
+          "id": "SL-902-A",
+          "method": "茜素红染色",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T11:20:17.883Z",
+              "step": "取样",
+              "note": "CSV批量导入创建初始切片任务"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CORE-1781695217883-c0ib",
+      "project": "测试导入项目",
+      "borehole": "ZK-TEST",
+      "coreBox": "BX-TEST",
+      "depth": "100.5-101.0m",
+      "owner": "测试员",
+      "status": "制片中",
+      "delivery": "未交付",
+      "slices": [
+        {
+          "id": "SL-901-A",
+          "method": "普通薄片",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T11:20:17.883Z",
+              "step": "取样",
+              "note": "CSV批量导入创建初始切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-901-B",
+          "method": "光片",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T11:20:17.883Z",
+              "step": "取样",
+              "note": "CSV批量导入创建初始切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-901-C",
+          "method": "茜素红染色",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T11:21:58.469Z",
+              "step": "取样",
+              "note": "CSV批量导入追加切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-901-D",
+          "method": "普通薄片",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T11:21:58.469Z",
+              "step": "取样",
+              "note": "CSV批量导入追加切片任务"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "CORE-1781682377671",
       "project": "测试项目批量",
       "borehole": "ZK-TEST-890",
@@ -495,7 +589,13 @@
       "receivingUnit": "地质分析中心",
       "remark": "西山金矿首批薄片交付，共1个切片",
       "slices": [
-        { "id": "SL-004-A", "method": "光片", "status": "观察", "hasObservation": true, "observationId": "OBS-004" }
+        {
+          "id": "SL-004-A",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-004"
+        }
       ],
       "sampleSnapshot": {
         "id": "CORE-004",
@@ -514,7 +614,13 @@
       "receivingUnit": "岩矿鉴定实验室",
       "remark": "铅锌矿光片交付，含黄铜矿固溶体分离特征",
       "slices": [
-        { "id": "SL-009-A", "method": "光片", "status": "观察", "hasObservation": true, "observationId": "OBS-009" }
+        {
+          "id": "SL-009-A",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-009"
+        }
       ],
       "sampleSnapshot": {
         "id": "CORE-009",

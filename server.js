@@ -269,6 +269,205 @@ function getAllSliceIds(db, excludeSampleId = null) {
   return ids;
 }
 
+function getAllSampleIds(db) {
+  return db.samples.map(s => s.id);
+}
+
+const DEPTH_PATTERN = /^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?\s*m?$/i;
+
+function validateDepth(depth) {
+  if (!depth || typeof depth !== "string" || depth.trim() === "") {
+    return false;
+  }
+  return DEPTH_PATTERN.test(depth.trim());
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length === 0) return { headers: [], rows: [] };
+  const headers = lines[0].split(",").map(h => h.trim().replace(/^["']|["']$/g, ""));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const values = [];
+    let current = "";
+    let inQuotes = false;
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        values.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    values.push(current.trim());
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] !== undefined ? values[idx] : "";
+    });
+    rows.push(row);
+  }
+  return { headers, rows };
+}
+
+function normalizeHeader(header) {
+  const map = {
+    "样本编号": "sampleId",
+    "sampleId": "sampleId",
+    "sample_id": "sampleId",
+    "项目": "project",
+    "project": "project",
+    "钻孔编号": "borehole",
+    "钻孔": "borehole",
+    "borehole": "borehole",
+    "岩芯箱号": "coreBox",
+    "箱号": "coreBox",
+    "coreBox": "coreBox",
+    "core_box": "coreBox",
+    "取样深度": "depth",
+    "深度": "depth",
+    "depth": "depth",
+    "负责人": "owner",
+    "owner": "owner",
+    "切片编号": "sliceId",
+    "sliceId": "sliceId",
+    "slice_id": "sliceId",
+    "染色方法": "method",
+    "方法": "method",
+    "method": "method",
+    "制片方法": "method"
+  };
+  return map[header] || header;
+}
+
+function validateCSVImport(rows, db) {
+  const errors = [];
+  const warnings = [];
+  const validatedRows = [];
+  const allExistingSliceIds = getAllSliceIds(db);
+  const allExistingSampleIds = getAllSampleIds(db);
+  const seenSliceIds = [];
+  const sampleGroups = {};
+
+  rows.forEach((row, index) => {
+    const rowNum = index + 2;
+    const rowErrors = [];
+    const rowWarnings = [];
+
+    const project = (row.project || "").trim();
+    const borehole = (row.borehole || "").trim();
+    const coreBox = (row.coreBox || "").trim();
+    const depth = (row.depth || "").trim();
+    const owner = (row.owner || "").trim();
+    const sliceId = (row.sliceId || "").trim();
+    const method = (row.method || "").trim();
+    const sampleId = (row.sampleId || "").trim();
+
+    if (!project) rowErrors.push("项目不能为空");
+    if (!borehole) rowErrors.push("钻孔编号不能为空");
+    if (!coreBox) rowErrors.push("岩芯箱号不能为空");
+    if (!depth) {
+      rowErrors.push("取样深度不能为空");
+    } else if (!validateDepth(depth)) {
+      rowErrors.push("深度格式异常 \"" + depth + "\"，正确格式示例：128.4-128.8m");
+    }
+    if (!owner) rowErrors.push("负责人不能为空");
+    if (!sliceId) {
+      rowErrors.push("切片编号不能为空");
+    } else {
+      if (!SLICE_ID_PATTERN.test(sliceId)) {
+        rowErrors.push("切片编号格式异常 \"" + sliceId + "\"，正确格式示例：SL-001-A");
+      }
+      if (allExistingSliceIds.includes(sliceId)) {
+        rowErrors.push("切片编号 \"" + sliceId + "\" 已存在");
+      }
+      if (seenSliceIds.includes(sliceId)) {
+        rowErrors.push("切片编号 \"" + sliceId + "\" 在CSV中重复");
+      }
+      if (rowErrors.length === 0) seenSliceIds.push(sliceId);
+    }
+    if (!method) rowErrors.push("染色方法不能为空");
+
+    if (sampleId && allExistingSampleIds.includes(sampleId)) {
+      rowWarnings.push("样本编号 \"" + sampleId + "\" 已存在，将追加切片添加到该样本");
+    }
+
+    validatedRows.push({
+      rowNum,
+      data: { project, borehole, coreBox, depth, owner, sliceId, method, sampleId },
+      errors: rowErrors,
+      warnings: rowWarnings,
+      hasError: rowErrors.length > 0,
+      hasWarning: rowWarnings.length > 0
+    });
+
+    const groupKey = sampleId || `${project}|${borehole}|${coreBox}|${depth}|${owner}`;
+    if (!sampleGroups[groupKey]) {
+      sampleGroups[groupKey] = { sampleId, project, borehole, coreBox, depth, owner, slices: [] };
+    }
+    if (!rowErrors.length) {
+      sampleGroups[groupKey].slices.push({ id: sliceId, method });
+    }
+  });
+
+  const validRows = validatedRows.filter(r => !r.hasError);
+  const invalidRows = validatedRows.filter(r => r.hasError);
+
+  return {
+    totalRows: rows.length,
+    validRows: validRows.length,
+    invalidRows: invalidRows.length,
+    validatedRows,
+    sampleGroups: Object.values(sampleGroups),
+    errors,
+    warnings
+  };
+}
+
+function groupSlicesToSamples(groups, db) {
+  const samples = [];
+  const allExistingSliceIds = getAllSliceIds(db);
+  const usedSliceIds = [];
+
+  groups.forEach(group => {
+    if (group.slices.length === 0) return;
+
+    let sample;
+    if (group.sampleId) {
+      sample = db.samples.find(s => s.id === group.sampleId);
+    }
+    if (sample) {
+      const newSlices = group.slices.filter(s => !allExistingSliceIds.includes(s.id) && !usedSliceIds.includes(s.id));
+      newSlices.forEach(s => usedSliceIds.push(s.id));
+      samples.push({
+        isNew: false,
+        sampleId: sample.id,
+        newSlices
+      });
+    } else {
+      const validSlices = group.slices.filter(s => !allExistingSliceIds.includes(s.id) && !usedSliceIds.includes(s.id));
+      validSlices.forEach(s => usedSliceIds.push(s.id));
+      samples.push({
+        isNew: true,
+        sampleData: {
+          project: group.project,
+          borehole: group.borehole,
+          coreBox: group.coreBox,
+          depth: group.depth,
+          owner: group.owner
+        },
+        newSlices: validSlices
+      });
+    }
+  });
+
+  return samples;
+}
+
 const page = `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -388,6 +587,50 @@ const page = `<!doctype html>
     .delivery-card-slices .slice-item { display: inline-block; background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; margin: 3px 6px 3px 0; }
     .delivery-card-remark { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--stone); }
     .delivery-empty { padding: 60px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; font-size: 14px; }
+    .import-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--line); margin-bottom: 14px; }
+    .import-tab { padding: 10px 16px; background: none; border: 0; color: var(--muted); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .import-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .import-content { display: none; }
+    .import-content.active { display: block; }
+    .csv-upload-area { border: 2px dashed var(--line); border-radius: 8px; padding: 30px; text-align: center; background: #fafcf7; cursor: pointer; transition: all 0.2s; }
+    .csv-upload-area:hover { border-color: var(--accent); background: #f0f5eb; }
+    .csv-upload-area.dragover { border-color: var(--accent); background: #e7f0dd; }
+    .csv-upload-icon { font-size: 48px; margin-bottom: 10px; }
+    .csv-upload-text { color: var(--muted); font-size: 14px; }
+    .csv-upload-text strong { color: var(--accent); }
+    .csv-file-info { background: #f5f8f0; border: 1px solid #c6dcb8; border-radius: 6px; padding: 10px 12px; margin-top: 10px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+    .csv-file-info .filename { font-weight: 600; color: var(--stone); }
+    .csv-preview-container { max-height: 400px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; margin-top: 12px; }
+    .csv-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .csv-preview-table th, .csv-preview-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    .csv-preview-table th { background: #f5f8f0; position: sticky; top: 0; font-weight: 600; color: var(--stone); }
+    .csv-preview-table tr:hover td { background: #fafcf6; }
+    .csv-preview-table tr.row-error td { background: #fdf2ef; }
+    .csv-preview-table tr.row-warning td { background: #fff8e6; }
+    .csv-preview-table td.cell-error { background: #fde8e4; color: var(--danger); }
+    .csv-preview-table td.cell-warning { background: #fff3cd; }
+    .csv-error-badge { display: inline-block; background: var(--danger); color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px; }
+    .csv-warn-badge { display: inline-block; background: #f0ad4e; color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px; }
+    .csv-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+    .csv-stat { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px; text-align: center; }
+    .csv-stat strong { display: block; font-size: 20px; color: var(--stone); }
+    .csv-stat.valid strong { color: var(--accent); }
+    .csv-stat.invalid strong { color: var(--danger); }
+    .csv-stat span { font-size: 12px; color: var(--muted); }
+    .csv-issues-list { max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 10px; }
+    .csv-issue-item { font-size: 12px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+    .csv-issue-item:last-child { border-bottom: 0; }
+    .csv-issue-item.error { color: var(--danger); }
+    .csv-issue-item.warning { color: #c69a00; }
+    .csv-issue-item .row-num { font-weight: 600; margin-right: 6px; }
+    .csv-sample-summary { background: #f5f8f0; border: 1px solid #c6dcb8; border-radius: 6px; padding: 10px 12px; margin-top: 12px; font-size: 13px; }
+    .csv-import-modal { width: 820px; }
+    .csv-import-result { background: #edf5e8; border: 1px solid #c6dcb8; border-radius: 8px; padding: 16px; margin-top: 12px; }
+    .csv-import-result.error { background: var(--warn-bg); border-color: var(--warn-border); }
+    .csv-import-result h3 { margin: 0 0 8px; color: var(--accent); }
+    .csv-import-result.error h3 { color: var(--danger); }
+    .csv-import-result ul { margin: 8px 0 0; padding-left: 20px; }
+    .csv-import-result li { font-size: 13px; margin: 3px 0; }
   </style>
 </head>
 <body>
@@ -406,30 +649,75 @@ const page = `<!doctype html>
     </div>
   </header>
   <main>
-    <form id="form" class="sample-form">
-      <h2>创建岩芯样本</h2>
-      <label>项目</label><input name="project" required>
-      <label>钻孔编号</label><input name="borehole" required>
-      <label>岩芯箱号</label><input name="coreBox" required>
-      <label>取样深度</label><input name="depth" required>
-      <label>负责人</label><input name="owner" required>
-
-      <div class="slice-batch-section">
-        <div class="slice-batch-header">
-          <h3>切片任务（批量录入）</h3>
-        </div>
-        <div class="format-hint">切片编号格式示例：SL-001-A、SL-010-B</div>
-        <div id="create-slice-rows"></div>
-        <div class="slice-actions">
-          <button type="button" class="secondary" id="add-create-slice">+ 添加一行</button>
-        </div>
+    <div class="panel sample-form">
+      <div class="import-tabs">
+        <button type="button" class="import-tab active" data-import-tab="manual">手动创建</button>
+        <button type="button" class="import-tab" data-import-tab="csv">CSV批量导入</button>
       </div>
 
-      <div id="create-alert"></div>
-      <div style="margin-top:14px;">
-        <button type="submit">保存样本</button>
+      <div id="import-manual" class="import-content active">
+        <form id="form">
+          <h2>创建岩芯样本</h2>
+          <label>项目</label><input name="project" required>
+          <label>钻孔编号</label><input name="borehole" required>
+          <label>岩芯箱号</label><input name="coreBox" required>
+          <label>取样深度</label><input name="depth" required>
+          <label>负责人</label><input name="owner" required>
+
+          <div class="slice-batch-section">
+            <div class="slice-batch-header">
+              <h3>切片任务（批量录入）</h3>
+            </div>
+            <div class="format-hint">切片编号格式示例：SL-001-A、SL-010-B</div>
+            <div id="create-slice-rows"></div>
+            <div class="slice-actions">
+              <button type="button" class="secondary" id="add-create-slice">+ 添加一行</button>
+            </div>
+          </div>
+
+          <div id="create-alert"></div>
+          <div style="margin-top:14px;">
+            <button type="submit">保存样本</button>
+          </div>
+        </form>
       </div>
-    </form>
+
+      <div id="import-csv" class="import-content">
+        <h2>CSV批量导入</h2>
+        <div class="format-hint" style="margin-bottom:10px;">支持列名：项目、钻孔编号、岩芯箱号、取样深度、负责人、切片编号、染色方法、样本编号（选填，用于追加到已有样本）</div>
+        <div class="csv-upload-area" id="csv-upload-area">
+          <div class="csv-upload-icon">📄</div>
+          <div class="csv-upload-text">
+            <strong>点击选择CSV文件</strong> 或拖拽文件到此处
+          </div>
+          <div class="format-hint" style="margin-top:8px;">每行代表一个切片任务，相同样本信息的行会自动合并</div>
+        </div>
+        <input type="file" id="csv-file-input" accept=".csv" style="display:none;">
+        <div id="csv-file-info" style="display:none;"></div>
+        <div id="csv-preview-area" style="display:none;">
+          <div class="csv-stats">
+            <div class="csv-stat"><strong id="csv-stat-total">0</strong><span>总行数</span></div>
+            <div class="csv-stat valid"><strong id="csv-stat-valid">0</strong><span>有效行</span></div>
+            <div class="csv-stat invalid"><strong id="csv-stat-invalid">0</strong><span>问题行</span></div>
+            <div class="csv-stat"><strong id="csv-stat-samples">0</strong><span>涉及样本</span></div>
+          </div>
+          <div class="csv-sample-summary" id="csv-sample-summary"></div>
+          <div style="margin-top:12px;">
+            <h3 style="margin:0 0 6px;font-size:14px;color:var(--stone);">数据预览</h3>
+            <div class="csv-preview-container" id="csv-preview-container"></div>
+          </div>
+          <div style="margin-top:12px;">
+            <h3 style="margin:0 0 6px;font-size:14px;color:var(--stone);">问题列表</h3>
+            <div class="csv-issues-list" id="csv-issues-list"></div>
+          </div>
+        </div>
+        <div id="csv-import-result" style="display:none;"></div>
+        <div class="modal-footer" style="margin-top:14px;">
+          <button type="button" class="secondary" id="csv-reset-btn" style="display:none;">重新选择</button>
+          <button type="button" id="csv-import-btn" style="display:none;">确认导入</button>
+        </div>
+      </div>
+    </div>
     <section>
       <div id="view-samples-area">
         <div class="filter-panel">
@@ -1257,6 +1545,231 @@ const page = `<!doctype html>
     document.querySelectorAll(".view-tab").forEach(tab => {
       tab.onclick = () => switchView(tab.dataset.view);
     });
+    let csvPreviewData = null;
+    let csvFile = null;
+
+    function switchImportTab(tabName) {
+      document.querySelectorAll(".import-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.importTab === tabName);
+      });
+      document.querySelectorAll(".import-content").forEach(content => {
+        content.classList.toggle("active", content.id === "import-" + tabName);
+      });
+    }
+
+    document.querySelectorAll(".import-tab").forEach(tab => {
+      tab.onclick = () => switchImportTab(tab.dataset.importTab);
+    });
+
+    const csvUploadArea = document.querySelector("#csv-upload-area");
+    const csvFileInput = document.querySelector("#csv-file-input");
+    const csvFileInfo = document.querySelector("#csv-file-info");
+    const csvPreviewArea = document.querySelector("#csv-preview-area");
+    const csvImportBtn = document.querySelector("#csv-import-btn");
+    const csvResetBtn = document.querySelector("#csv-reset-btn");
+    const csvImportResult = document.querySelector("#csv-import-result");
+
+    csvUploadArea.onclick = () => csvFileInput.click();
+    csvFileInput.onchange = e => {
+      const file = e.target.files[0];
+      if (file && file.name.toLowerCase().endsWith('.csv') {
+        handleCSVFile(file);
+      } else if (file) {
+        alert("请选择CSV文件");
+      }
+    };
+
+    csvUploadArea.ondragover = e => {
+      e.preventDefault();
+      csvUploadArea.classList.add("dragover");
+    };
+    csvUploadArea.ondragleave = () => {
+      csvUploadArea.classList.remove("dragover");
+    };
+    csvUploadArea.ondrop = e => {
+      e.preventDefault();
+      csvUploadArea.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.toLowerCase().endsWith('.csv') {
+        handleCSVFile(file);
+      } else if (file) {
+        alert("请选择CSV文件");
+      }
+    };
+
+    function handleCSVFile(file) {
+      csvFile = file;
+      const reader = new FileReader();
+      reader.onload = async e => {
+        const text = e.target.result;
+        try {
+          const result = await api("/api/csv/preview", {
+            method: "POST",
+            body: JSON.stringify({ csvText: text })
+          });
+          csvPreviewData = { text, result };
+          renderCSVPreview(result);
+          csvFileInfo.style.display = "flex";
+          csvFileInfo.innerHTML = '<span class="filename">📄 ' + file.name + '</span><span class="meta">' + (file.size / 1024).toFixed(1) + ' KB</span>';
+          csvUploadArea.style.display = "none";
+          csvPreviewArea.style.display = "block";
+          csvImportBtn.style.display = result.validRows > 0 ? "inline-block" : "none";
+          csvResetBtn.style.display = "inline-block";
+          csvImportResult.style.display = "none";
+        } catch (err) {
+          alert("CSV解析失败：" + err.message);
+        }
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function renderCSVPreview(data) {
+      document.querySelector("#csv-stat-total").textContent = data.totalRows;
+      document.querySelector("#csv-stat-valid").textContent = data.validRows;
+      document.querySelector("#csv-stat-invalid").textContent = data.invalidRows;
+      document.querySelector("#csv-stat-samples").textContent = data.sampleGroupCount;
+
+      const summaryEl = document.querySelector("#csv-sample-summary");
+      summaryEl.innerHTML = "将创建 <strong>" + data.newSampleCount + "</strong> 个新样本" +
+        (data.existingSampleCount > 0 ? '，向 <strong>' + data.existingSampleCount + '</strong> 个已有样本追加切片' : '');
+
+      const container = document.querySelector("#csv-preview-container");
+      const rows = data.validatedRows;
+      const headers = ["行号", "样本编号", "项目", "钻孔编号", "岩芯箱号", "取样深度", "负责人", "切片编号", "染色方法", "状态"];
+
+      let html = '<table class="csv-preview-table"><thead><tr>';
+      headers.forEach(h => { html += '<th>' + h + '</th>'; });
+      html += '</tr></thead><tbody>';
+
+      rows.forEach(row => {
+        const d = row.data;
+        let rowClass = "";
+        if (row.hasError) rowClass = "row-error";
+        else if (row.hasWarning) rowClass = "row-warning";
+
+        html += '<tr class="' + rowClass + '">';
+        html += '<td>' + row.rowNum + '</td>';
+
+        const sampleIdDisplay = d.sampleId ? d.sampleId : '<span class="meta">自动生成</span>';
+        html += '<td class="' + (row.warnings.some(w => w.includes("样本编号")) ? 'cell-warning' : '') + '">' + sampleIdDisplay + '</td>';
+
+        const projectClass = !d.project ? 'cell-error' : '';
+        html += '<td class="' + projectClass + '">' + (d.project || '<span class="meta">空</span>') + '</td>';
+
+        const boreholeClass = !d.borehole ? 'cell-error' : '';
+        html += '<td class="' + boreholeClass + '">' + (d.borehole || '<span class="meta">空</span>') + '</td>';
+
+        const coreBoxClass = !d.coreBox ? 'cell-error' : '';
+        html += '<td class="' + coreBoxClass + '">' + (d.coreBox || '<span class="meta">空</span>') + '</td>';
+
+        const depthClass = !d.depth || row.errors.some(e => e.includes("深度")) ? 'cell-error' : '';
+        html += '<td class="' + depthClass + '">' + (d.depth || '<span class="meta">空</span>') + '</td>';
+
+        const ownerClass = !d.owner ? 'cell-error' : '';
+        html += '<td class="' + ownerClass + '">' + (d.owner || '<span class="meta">空</span>') + '</td>';
+
+        const sliceIdClass = !d.sliceId || row.errors.some(e => e.includes("切片编号")) ? 'cell-error' : '';
+        html += '<td class="' + sliceIdClass + '">' + (d.sliceId || '<span class="meta">空</span>') + '</td>';
+
+        const methodClass = !d.method ? 'cell-error' : '';
+        html += '<td class="' + methodClass + '">' + (d.method || '<span class="meta">空</span>') + '</td>';
+
+        let statusHtml = "";
+        if (row.hasError) {
+          statusHtml = '<span class="csv-error-badge">错误</span>';
+        } else if (row.hasWarning) {
+          statusHtml = '<span class="csv-warn-badge">警告</span>';
+        } else {
+          statusHtml = '<span style="color:var(--accent);">✓</span>';
+        }
+        html += '<td>' + statusHtml + '</td>';
+
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+
+      const issuesList = document.querySelector("#csv-issues-list");
+      let issuesHtml = "";
+      let issueCount = 0;
+      rows.forEach(row => {
+        row.errors.forEach(err => {
+          issuesHtml += '<div class="csv-issue-item error"><span class="row-num">第' + row.rowNum + '行:</span>' + err + '</div>';
+          issueCount++;
+        });
+        row.warnings.forEach(warn => {
+          issuesHtml += '<div class="csv-issue-item warning"><span class="row-num">第' + row.rowNum + '行:</span>' + warn + '</div>';
+          issueCount++;
+        });
+      });
+      issuesHtml = issueCount === 0
+        ? '<div class="csv-issue-item" style="color:var(--accent);">✓ 没有发现问题，所有数据均有效</div>'
+        : issuesHtml;
+      issuesList.innerHTML = issuesHtml;
+    }
+
+    csvResetBtn.onclick = () => {
+      csvPreviewData = null;
+      csvFile = null;
+      csvFileInput.value = "";
+      csvUploadArea.style.display = "block";
+      csvFileInfo.style.display = "none";
+      csvPreviewArea.style.display = "none";
+      csvImportBtn.style.display = "none";
+      csvResetBtn.style.display = "none";
+      csvImportResult.style.display = "none";
+    };
+
+    csvImportBtn.onclick = async () => {
+      if (!csvPreviewData) return;
+      if (!confirm("确认导入这些数据吗？")) return;
+      try {
+        csvImportBtn.disabled = true;
+        csvImportBtn.textContent = "导入中...";
+        const result = await api("/api/csv/import", {
+          method: "POST",
+          body: JSON.stringify({ csvText: csvPreviewData.text })
+        });
+        renderImportResult(result);
+        csvImportBtn.style.display = "none";
+        csvResetBtn.textContent = "继续导入";
+        await load();
+      } catch (err) {
+        const msg = err.message;
+        csvImportResult.style.display = "block";
+        csvImportResult.className = "csv-import-result error";
+        csvImportResult.innerHTML = '<h3>导入失败</h3><div>' + msg + '</div>';
+      } finally {
+        csvImportBtn.disabled = false;
+        csvImportBtn.textContent = "确认导入";
+      }
+    };
+
+    function renderImportResult(result) {
+      csvImportResult.style.display = "block";
+      csvImportResult.className = "csv-import-result";
+      let html = '<h3>导入完成！</h3>';
+      html += '<div>共处理 ' + result.totalRows + ' 行数据</div>';
+      html += '<ul>';
+      html += '<li>成功导入 ' + result.successSlices + ' 个切片任务</li>';
+      html += '<li>新建 ' + result.successSamples + ' 个样本</li>';
+      html += '<li>失败 ' + result.failedSlices + ' 行</li>';
+      html += '</ul>';
+      if (result.results && result.results.length > 0) {
+        html += '<div style="margin-top:8px;"><b>详细结果：</b><ul>';
+        result.results.forEach(r => {
+          if (r.type === "new_sample") {
+            html += '<li>新建样本 ' + r.sampleId + '（' + r.project + '），含 ' + r.sliceCount + ' 个切片）</li>';
+          } else {
+            html += '<li>向样本 ' + r.sampleId + ' 追加 ' + r.sliceCount + ' 个切片</li>';
+          }
+        });
+        html += '</ul></div>';
+      }
+      csvImportResult.innerHTML = html;
+    }
+
     document.querySelector("#add-create-slice").onclick = () => {
       createSliceRowsEl.appendChild(createSliceRow());
     };
@@ -1591,6 +2104,143 @@ const server = http.createServer(async (req, res) => {
         updateSampleStatus(sample);
         await saveDb(db);
         return sendJson(res, 201, { sample, record });
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/csv/preview") {
+      const input = await body(req);
+      const csvText = input.csvText || "";
+      if (!csvText || typeof csvText !== "string") {
+        return sendJson(res, 400, { error: "请上传有效的CSV文件" });
+      }
+      try {
+        const { headers, rows } = parseCSV(csvText);
+        if (rows.length === 0) {
+          return sendJson(res, 400, { error: "CSV文件中没有数据行" });
+        }
+        const normalizedRows = rows.map(row => {
+          const normalized = {};
+          Object.keys(row).forEach(key => {
+            const normalizedKey = normalizeHeader(key);
+            normalized[normalizedKey] = row[key];
+          });
+          return normalized;
+        });
+        const result = validateCSVImport(normalizedRows, db);
+        return sendJson(res, 200, {
+          originalHeaders: headers,
+          totalRows: result.totalRows,
+          validRows: result.validRows,
+          invalidRows: result.invalidRows,
+          validatedRows: result.validatedRows,
+          sampleGroupCount: result.sampleGroups.length,
+          newSampleCount: result.sampleGroups.filter(g => !g.sampleId).length,
+          existingSampleCount: result.sampleGroups.filter(g => g.sampleId).length
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: "CSV解析失败：" + err.message });
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/csv/import") {
+      const input = await body(req);
+      const csvText = input.csvText || "";
+      if (!csvText || typeof csvText !== "string") {
+        return sendJson(res, 400, { error: "请上传有效的CSV文件" });
+      }
+      try {
+        const { rows } = parseCSV(csvText);
+        const normalizedRows = rows.map(row => {
+          const normalized = {};
+          Object.keys(row).forEach(key => {
+            const normalizedKey = normalizeHeader(key);
+            normalized[normalizedKey] = row[key];
+          });
+          return normalized;
+        });
+        const validation = validateCSVImport(normalizedRows, db);
+        if (validation.validRows === 0) {
+          return sendJson(res, 400, { error: "没有可导入的有效数据行" });
+        }
+
+        const sampleData = groupSlicesToSamples(validation.sampleGroups, db);
+        let successSamples = 0;
+        let successSlices = 0;
+        let failedSlices = 0;
+        const results = [];
+
+        sampleData.forEach(item => {
+          if (item.isNew) {
+            const newSample = {
+              id: "CORE-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+              project: item.sampleData.project,
+              borehole: item.sampleData.borehole,
+              coreBox: item.sampleData.coreBox,
+              depth: item.sampleData.depth,
+              owner: item.sampleData.owner,
+              status: "待切割",
+              delivery: "未交付",
+              slices: item.newSlices.map(s => ({
+                id: s.id,
+                method: s.method || "未指定",
+                observation: "",
+                observations: [],
+                status: "取样",
+                logs: [{ at: new Date().toISOString(), step: "取样", note: "CSV批量导入创建初始切片任务" }]
+              }))
+            };
+            updateSampleStatus(newSample);
+            db.samples.unshift(newSample);
+            successSamples++;
+            successSlices += item.newSlices.length;
+            results.push({
+              type: "new_sample",
+              sampleId: newSample.id,
+              sliceCount: item.newSlices.length,
+              project: newSample.project
+            });
+          } else {
+            const sample = db.samples.find(s => s.id === item.sampleId);
+            if (sample) {
+              item.newSlices.forEach(s => {
+                sample.slices.push({
+                  id: s.id,
+                  method: s.method || "未指定",
+                  observation: "",
+                  observations: [],
+                  status: "取样",
+                  logs: [{ at: new Date().toISOString(), step: "取样", note: "CSV批量导入追加切片任务" }]
+                });
+              });
+              updateSampleStatus(sample);
+              successSlices += item.newSlices.length;
+              results.push({
+                type: "append_slices",
+                sampleId: sample.id,
+                sliceCount: item.newSlices.length,
+                project: sample.project
+              });
+            }
+          }
+        });
+
+        failedSlices = validation.invalidRows;
+
+        await saveDb(db);
+
+        return sendJson(res, 200, {
+          success: true,
+          totalRows: validation.totalRows,
+          validRows: validation.validRows,
+          invalidRows: validation.invalidRows,
+          successSamples,
+          successSlices,
+          failedSlices,
+          results,
+          validatedRows: validation.validatedRows
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: "导入失败：" + err.message });
       }
     }
 
