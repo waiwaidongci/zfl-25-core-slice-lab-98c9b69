@@ -1572,7 +1572,7 @@ const page = `<!doctype html>
     csvUploadArea.onclick = () => csvFileInput.click();
     csvFileInput.onchange = e => {
       const file = e.target.files[0];
-      if (file && file.name.toLowerCase().endsWith('.csv') {
+      if (file && file.name.toLowerCase().endsWith('.csv')) {
         handleCSVFile(file);
       } else if (file) {
         alert("请选择CSV文件");
@@ -1590,7 +1590,7 @@ const page = `<!doctype html>
       e.preventDefault();
       csvUploadArea.classList.remove("dragover");
       const file = e.dataTransfer.files[0];
-      if (file && file.name.toLowerCase().endsWith('.csv') {
+      if (file && file.name.toLowerCase().endsWith('.csv')) {
         handleCSVFile(file);
       } else if (file) {
         alert("请选择CSV文件");
