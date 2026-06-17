@@ -62,7 +62,7 @@ const seed = {
       status: "已交付",
       delivery: "已交付",
       slices: [
-        { id: "SL-004-A", method: "光片", observation: "可见自然金颗粒，粒径约0.02mm", status: "观察", logs: [{ at: "2026-06-01T10:00:00.000Z", step: "取样", note: "蚀变带" }, { at: "2026-06-02T09:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-03T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-06-04T14:00:00.000Z", step: "染色", note: "" }, { at: "2026-06-05T16:00:00.000Z", step: "观察", note: "可见自然金颗粒" }] }
+        { id: "SL-004-A", method: "光片", observation: "可见自然金颗粒，粒径约0.02mm", status: "观察", observations: [{id:"OBS-004", at:"2026-06-05T16:00:00.000Z", lithology:"硅化蚀变岩", minerals:"石英70%+黄铁矿15%+自然金0.5%+其他14.5%", texture:"晶粒结构，块状构造", remark:"自然金呈不规则粒状嵌布于石英颗粒间，粒径0.01-0.03mm"}], logs: [{ at: "2026-06-01T10:00:00.000Z", step: "取样", note: "蚀变带" }, { at: "2026-06-02T09:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-03T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-06-04T14:00:00.000Z", step: "染色", note: "" }, { at: "2026-06-05T16:00:00.000Z", step: "观察", note: "可见自然金颗粒" }] }
       ]
     },
     {
@@ -128,7 +128,7 @@ const seed = {
       status: "已交付",
       delivery: "已交付",
       slices: [
-        { id: "SL-009-A", method: "光片", observation: "闪锌矿+方铅矿共生", status: "观察", logs: [{ at: "2026-05-20T10:00:00.000Z", step: "取样", note: "" }, { at: "2026-05-21T08:00:00.000Z", step: "切割", note: "" }, { at: "2026-05-22T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-05-23T14:00:00.000Z", step: "染色", note: "" }, { at: "2026-05-24T16:00:00.000Z", step: "观察", note: "闪锌矿+方铅矿共生" }] }
+        { id: "SL-009-A", method: "光片", observation: "闪锌矿+方铅矿共生", status: "观察", observations: [{id:"OBS-009", at:"2026-05-24T16:00:00.000Z", lithology:"中细粒砂岩", minerals:"闪锌矿35%+方铅矿25%+黄铁矿10%+石英20%+其他10%", texture:"他形晶粒结构，浸染状构造", remark:"闪锌矿与方铅矿紧密共生，闪锌矿内见乳浊状黄铜矿固溶体分离物"}], logs: [{ at: "2026-05-20T10:00:00.000Z", step: "取样", note: "" }, { at: "2026-05-21T08:00:00.000Z", step: "切割", note: "" }, { at: "2026-05-22T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-05-23T14:00:00.000Z", step: "染色", note: "" }, { at: "2026-05-24T16:00:00.000Z", step: "观察", note: "闪锌矿+方铅矿共生" }] }
       ]
     },
     {
@@ -152,7 +152,18 @@ async function loadDb() {
     await mkdir(dirname(dbPath), { recursive: true });
     await writeFile(dbPath, JSON.stringify(seed, null, 2));
   }
-  return JSON.parse(await readFile(dbPath, "utf8"));
+  const db = JSON.parse(await readFile(dbPath, "utf8"));
+  let needSave = false;
+  db.samples.forEach(sample => {
+    sample.slices.forEach(slice => {
+      if (!Array.isArray(slice.observations)) {
+        slice.observations = [];
+        needSave = true;
+      }
+    });
+  });
+  if (needSave) await saveDb(db);
+  return db;
 }
 async function saveDb(db) { await writeFile(dbPath, JSON.stringify(db, null, 2)); }
 async function body(req) {
@@ -166,9 +177,9 @@ function sendJson(res, status, data) {
 }
 function updateSampleStatus(sample) {
   const sliceStatuses = sample.slices.map(slice => slice.status);
-  if (sliceStatuses.length && sliceStatuses.every(step => step === "观察")) sample.status = "待观察";
   if (sample.delivery === "已交付") sample.status = "已交付";
   else if (sliceStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) sample.status = "制片中";
+  else if (sliceStatuses.length && sliceStatuses.every(step => step === "观察")) sample.status = "待观察";
   else sample.status = "待切割";
 }
 
@@ -255,8 +266,19 @@ const page = `<!doctype html>
     .sample-id { font-size:13px; color:var(--stone); font-weight:600; }
     .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:100; }
     .modal { background:#fff; border-radius:10px; padding:20px; width:460px; max-width:92vw; max-height:85vh; overflow-y:auto; }
+    .modal.wide { width:620px; }
     .modal h2 { margin:0 0 14px; }
     .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+    .obs-summary { background:#f5f8f0; border:1px solid #c6dcb8; border-radius:6px; padding:8px 10px; margin-top:8px; font-size:13px; }
+    .obs-summary .label { color:var(--accent); font-weight:700; margin-right:4px; }
+    .obs-row { margin-top:6px; }
+    .obs-row b { color:var(--stone); }
+    .obs-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+    .obs-header .obs-date { color:var(--muted); font-size:12px; }
+    .obs-history { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
+    .obs-history-item { padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+    .obs-history-item:last-child { border-bottom:0; }
+    .obs-btn { margin-top:6px; }
     @media (max-width:950px){ header{display:block;padding:18px 16px;} main{grid-template-columns:1fr;padding:16px;} .stats{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
@@ -488,6 +510,54 @@ const page = `<!doctype html>
       }
       return data;
     }
+    function formatObsDate(isoStr) {
+      try {
+        const d = new Date(isoStr);
+        const pad = n => String(n).padStart(2, "0");
+        return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+      } catch { return isoStr; }
+    }
+
+    function openObservationModal(sampleId, sliceId) {
+      const sample = samples.find(s => s.id === sampleId);
+      if (!sample) return;
+      const slice = sample.slices.find(s => s.id === sliceId);
+      if (!slice) return;
+      const observations = slice.observations || [];
+      const lastObs = observations.length ? observations[observations.length - 1] : null;
+      const mask = document.createElement("div");
+      mask.className = "modal-mask";
+      const modal = document.createElement("div");
+      modal.className = "modal wide";
+      modal.innerHTML = '<h2>观察结果归档 — ' + slice.id + '</h2><div class="meta">' + sample.project + ' · ' + sample.borehole + ' · ' + sample.coreBox + ' · ' + slice.method + '</div><div style="margin-top:14px;"><label>岩性描述</label><textarea id="obs-lithology" placeholder="如：中细粒砂岩、硅化蚀变岩、灰岩等">' + (lastObs ? (lastObs.lithology || "") : "") + '</textarea></div><div><label>矿物组合</label><textarea id="obs-minerals" placeholder="如：石英70%+长石15%+黄铁矿10%+其他5%">' + (lastObs ? (lastObs.minerals || "") : "") + '</textarea></div><div><label>结构构造</label><textarea id="obs-texture" placeholder="如：他形晶粒结构，浸染状构造；晶粒结构，块状构造">' + (lastObs ? (lastObs.texture || "") : "") + '</textarea></div><div><label>备注</label><textarea id="obs-remark" placeholder="其他观察记录或补充说明">' + (lastObs ? (lastObs.remark || "") : "") + '</textarea></div><div id="obs-alert" style="margin-top:10px;"></div>' + (observations.length > 0 ? '<div class="obs-history"><h3 style="margin:0 0 8px;font-size:14px;color:var(--stone);">历史观察记录（共 ' + observations.length + ' 条）</h3>' + observations.slice().reverse().map(obs => '<div class="obs-history-item"><div class="obs-header"><b>' + obs.id + '</b><span class="obs-date">' + formatObsDate(obs.at) + '</span></div>' + (obs.lithology ? '<div class="obs-row"><b>岩性：</b>' + obs.lithology + '</div>' : '') + (obs.minerals ? '<div class="obs-row"><b>矿物：</b>' + obs.minerals + '</div>' : '') + (obs.texture ? '<div class="obs-row"><b>结构构造：</b>' + obs.texture + '</div>' : '') + (obs.remark ? '<div class="obs-row"><b>备注：</b>' + obs.remark + '</div>' : '') + '</div>').join("") + '</div>' : '') + '<div class="modal-footer"><button type="button" class="secondary" id="obs-cancel">取消</button><button type="button" id="obs-save">保存观察记录</button></div>';
+      mask.appendChild(modal);
+      modalRoot.appendChild(mask);
+      const obsAlert = modal.querySelector("#obs-alert");
+      modal.querySelector("#obs-cancel").onclick = () => mask.remove();
+      mask.onclick = e => { if (e.target === mask) mask.remove(); };
+      modal.querySelector("#obs-save").onclick = async () => {
+        const lithology = modal.querySelector("#obs-lithology").value.trim();
+        const minerals = modal.querySelector("#obs-minerals").value.trim();
+        const texture = modal.querySelector("#obs-texture").value.trim();
+        const remark = modal.querySelector("#obs-remark").value.trim();
+        try {
+          await api('/api/samples/' + sampleId + '/slices/' + sliceId + '/observations', { method:'POST', body: JSON.stringify({ lithology, minerals, texture, remark }) });
+          mask.remove();
+          await load();
+        } catch (err) {
+          const msg = err.message;
+          try {
+            const parsed = JSON.parse(msg);
+            if (Array.isArray(parsed)) {
+              showAlert(obsAlert, parsed);
+              return;
+            }
+          } catch (_) {}
+          showAlert(obsAlert, [msg]);
+        }
+      };
+    }
+
     function render() {
       const filters = getFilters();
       const filtered = applyFilters(samples, filters);
@@ -497,7 +567,27 @@ const page = `<!doctype html>
         samplesEl.innerHTML = '<div class="empty">没有符合筛选条件的样本，请调整筛选条件。</div>';
         return;
       }
-      samplesEl.innerHTML = filtered.map(sample => '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+sample.delivery+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div><button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => '<div class="slice"><b>'+slice.id+'</b><div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div><select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button><div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>').join("")+'<button data-deliver="'+sample.id+'">标记交付</button></article>').join("");
+      samplesEl.innerHTML = filtered.map(sample => {
+        const allObservations = [];
+        sample.slices.forEach(slice => {
+          const obs = slice.observations && slice.observations.length ? slice.observations[slice.observations.length - 1] : null;
+          if (obs) allObservations.push({ sliceId: slice.id, obs });
+        });
+        const summaryHtml = allObservations.length ? '<div class="obs-summary"><span class="label">最近观察摘要：</span>' + allObservations.map(item => {
+          const parts = [];
+          if (item.obs.lithology) parts.push(item.obs.lithology);
+          if (item.obs.minerals) parts.push(item.obs.minerals);
+          if (item.obs.texture) parts.push(item.obs.texture);
+          return item.sliceId + '[' + parts.join('；') + ']';
+        }).join(' ') + '</div>' : '';
+        return '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+sample.delivery+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + summaryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
+          const observations = slice.observations || [];
+          const lastObs = observations.length ? observations[observations.length - 1] : null;
+          const obsSummaryHtml = lastObs ? '<div class="obs-summary" style="margin-top:10px;"><div class="obs-header"><span class="label">最近观察（' + formatObsDate(lastObs.at) + '）</span>' + (observations.length > 1 ? '<span class="obs-date">共 '+observations.length+' 条</span>' : '') + '</div>' + (lastObs.lithology ? '<div class="obs-row"><b>岩性：</b>' + lastObs.lithology + '</div>' : '') + (lastObs.minerals ? '<div class="obs-row"><b>矿物：</b>' + lastObs.minerals + '</div>' : '') + (lastObs.texture ? '<div class="obs-row"><b>结构构造：</b>' + lastObs.texture + '</div>' : '') + (lastObs.remark ? '<div class="obs-row"><b>备注：</b>' + lastObs.remark + '</div>' : '') + '</div>' : '';
+          const obsBtn = slice.status === '观察' ? '<button type="button" class="secondary obs-btn" data-observation="'+sample.id+'|'+slice.id+'">📝 填写观察结果</button>' : '';
+          return '<div class="slice"><b>'+slice.id+'</b><div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div><select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button>' + obsBtn + obsSummaryHtml + '<div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>';
+        }).join("")+'<button data-deliver="'+sample.id+'">标记交付</button></article>';
+      }).join("");
       document.querySelectorAll("[data-step]").forEach(sel => {
         const [sampleId, sliceId] = sel.dataset.step.split("|");
         const slice = samples.find(s => s.id === sampleId).slices.find(s => s.id === sliceId);
@@ -505,6 +595,10 @@ const page = `<!doctype html>
       });
       document.querySelectorAll("[data-batch-append]").forEach(btn => btn.onclick = () => {
         openBatchAppendModal(btn.dataset.batchAppend);
+      });
+      document.querySelectorAll("[data-observation]").forEach(btn => btn.onclick = () => {
+        const [sampleId, sliceId] = btn.dataset.observation.split("|");
+        openObservationModal(sampleId, sliceId);
       });
       document.querySelectorAll("[data-log]").forEach(btn => btn.onclick = async () => {
         const [sampleId, sliceId] = btn.dataset.log.split("|");
@@ -613,6 +707,7 @@ const server = http.createServer(async (req, res) => {
           id: s.id.trim(),
           method: s.method.trim() || "未指定",
           observation: "",
+          observations: [],
           status: "取样",
           logs: [{ at: new Date().toISOString(), step: "取样", note: "创建初始切片任务" }]
         }))
@@ -634,7 +729,7 @@ const server = http.createServer(async (req, res) => {
       if (validationErrors.length > 0) {
         return sendJson(res, 400, { error: validationErrors });
       }
-      sample.slices.push({ id: input.id.trim(), method: (input.method || "未指定").trim(), observation: "", status: "取样", logs: [{ at: new Date().toISOString(), step: "取样", note: "新增切片任务" }] });
+      sample.slices.push({ id: input.id.trim(), method: (input.method || "未指定").trim(), observation: "", observations: [], status: "取样", logs: [{ at: new Date().toISOString(), step: "取样", note: "新增切片任务" }] });
       updateSampleStatus(sample);
       await saveDb(db);
       return sendJson(res, 201, sample);
@@ -660,6 +755,7 @@ const server = http.createServer(async (req, res) => {
           id: s.id.trim(),
           method: (s.method || "未指定").trim(),
           observation: "",
+          observations: [],
           status: "取样",
           logs: [{ at: new Date().toISOString(), step: "取样", note: "批量追加切片任务" }]
         });
@@ -692,6 +788,47 @@ const server = http.createServer(async (req, res) => {
       await saveDb(db);
       return sendJson(res, 200, sample);
     }
+
+    const observationMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/slices\/([^/]+)\/observations$/);
+    if (observationMatch) {
+      const sample = db.samples.find(item => item.id === observationMatch[1]);
+      if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      const slice = sample.slices.find(item => item.id === observationMatch[2]);
+      if (!slice) return sendJson(res, 404, { error: "slice_not_found" });
+
+      if (req.method === "GET") {
+        return sendJson(res, 200, slice.observations || []);
+      }
+      if (req.method === "POST") {
+        const input = await body(req);
+        const lithology = (input.lithology || "").trim();
+        const minerals = (input.minerals || "").trim();
+        const texture = (input.texture || "").trim();
+        const remark = (input.remark || "").trim();
+        if (!lithology && !minerals && !texture && !remark) {
+          return sendJson(res, 400, { error: ["请至少填写一项观察结果"] });
+        }
+        const record = {
+          id: `OBS-${Date.now()}`,
+          at: new Date().toISOString(),
+          lithology,
+          minerals,
+          texture,
+          remark
+        };
+        if (!Array.isArray(slice.observations)) slice.observations = [];
+        slice.observations.push(record);
+        const summaryParts = [];
+        if (lithology) summaryParts.push(lithology);
+        if (minerals) summaryParts.push(minerals);
+        if (texture) summaryParts.push(texture);
+        slice.observation = summaryParts.join("；") || remark;
+        updateSampleStatus(sample);
+        await saveDb(db);
+        return sendJson(res, 201, { sample, record });
+      }
+    }
+
     sendJson(res, 404, { error: "not_found" });
   } catch (error) {
     sendJson(res, 500, { error: error.message });
