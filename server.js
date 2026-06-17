@@ -279,11 +279,50 @@ const page = `<!doctype html>
     .obs-history-item { padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
     .obs-history-item:last-child { border-bottom:0; }
     .obs-btn { margin-top:6px; }
-    @media (max-width:950px){ header{display:block;padding:18px 16px;} main{grid-template-columns:1fr;padding:16px;} .stats{grid-template-columns:1fr 1fr;} }
+    .view-tabs { display:flex; gap:4px; background:#eef1ea; padding:4px; border-radius:8px; }
+    .view-tab { padding:8px 16px; border-radius:6px; background:transparent; color:var(--muted); font-weight:600; }
+    .view-tab.active { background:#fff; color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+    .view-content { display:none; }
+    .view-content.active { display:block; }
+    .workbench { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; min-height:400px; }
+    .workbench-column { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; min-height:0; }
+    .workbench-column-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid var(--line); }
+    .workbench-column-header h3 { margin:0; font-size:15px; display:flex; align-items:center; gap:6px; }
+    .workbench-column-count { background:var(--accent); color:#fff; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:700; min-width:24px; text-align:center; }
+    .workbench-cards { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+    .workbench-card { background:#f8faf5; border:1px solid var(--line); border-radius:6px; padding:10px; cursor:pointer; transition:all 0.15s; }
+    .workbench-card:hover { background:#fff; border-color:var(--accent); box-shadow:0 2px 6px rgba(82,111,67,0.15); }
+    .workbench-card-id { font-weight:700; font-size:13px; margin-bottom:4px; }
+    .workbench-card-meta { font-size:12px; color:var(--muted); margin-bottom:2px; }
+    .workbench-card-project { font-size:11px; color:var(--stone); }
+    .workbench-card-actions { margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+    .workbench-card-actions textarea { min-height:50px; font-size:12px; padding:6px; }
+    .workbench-card-actions button { padding:6px 10px; font-size:12px; }
+    .workbench-card-actions .row { display:flex; gap:6px; }
+    .workbench-card-actions select { font-size:12px; padding:6px; }
+    .workbench-empty { text-align:center; color:var(--muted); font-size:12px; padding:20px 8px; border:1px dashed var(--line); border-radius:6px; }
+    .workbench-error { background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:8px; padding:16px; text-align:center; color:var(--danger); grid-column:1/-1; }
+    .step-indicator { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:var(--accent); color:#fff; font-size:11px; font-weight:700; }
+    @media (max-width:1200px){ .workbench{grid-template-columns:repeat(3,1fr);} }
+    @media (max-width:800px){ .workbench{grid-template-columns:1fr 1fr;} }
+    @media (max-width:500px){ .workbench{grid-template-columns:1fr;} }
+    @media (max-width:950px){ header{display:block;padding:18px 16px;} main{grid-template-columns:1fr;padding:16px;} .stats{grid-template-columns:1fr 1fr;} .view-tabs{margin-top:12px;} }
   </style>
 </head>
 <body>
-  <header><div><h1>岩芯样本切片实验室</h1><div class="meta">样本、切片任务、制片步骤和交付</div></div><button id="reload">刷新</button></header>
+  <header>
+    <div>
+      <h1>岩芯样本切片实验室</h1>
+      <div class="meta">样本、切片任务、制片步骤和交付</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div class="view-tabs" id="view-tabs">
+        <button type="button" class="view-tab active" data-view="cards">样本卡片</button>
+        <button type="button" class="view-tab" data-view="workbench">实验室工作台</button>
+      </div>
+      <button id="reload">刷新</button>
+    </div>
+  </header>
   <main>
     <form id="form">
       <h2>创建岩芯样本</h2>
@@ -343,8 +382,14 @@ const page = `<!doctype html>
         </div>
       </div>
       <div class="stats" id="stats"></div>
-      <div class="result-count" id="result-count"></div>
-      <div class="grid" id="samples"></div>
+      <div id="view-cards" class="view-content active">
+        <div class="result-count" id="result-count"></div>
+        <div class="grid" id="samples"></div>
+      </div>
+      <div id="view-workbench" class="view-content">
+        <div class="result-count" id="workbench-count"></div>
+        <div class="workbench" id="workbench"></div>
+      </div>
     </section>
   </main>
   <div id="modal-root"></div>
@@ -355,10 +400,14 @@ const page = `<!doctype html>
     const stats = document.querySelector("#stats");
     const samplesEl = document.querySelector("#samples");
     const resultCountEl = document.querySelector("#result-count");
+    const workbenchEl = document.querySelector("#workbench");
+    const workbenchCountEl = document.querySelector("#workbench-count");
     const createSliceRowsEl = document.querySelector("#create-slice-rows");
     const createAlertEl = document.querySelector("#create-alert");
     const modalRoot = document.querySelector("#modal-root");
     let samples = [];
+    let workbenchError = null;
+    let activeView = "cards";
     const filterFields = ["project", "borehole", "corebox", "owner", "status", "delivery"];
 
     function createSliceRow(initialId = "", initialMethod = "") {
@@ -518,6 +567,218 @@ const page = `<!doctype html>
       } catch { return isoStr; }
     }
 
+    function switchView(view) {
+      activeView = view;
+      document.querySelectorAll(".view-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.view === view);
+      });
+      document.querySelectorAll(".view-content").forEach(content => {
+        content.classList.toggle("active", content.id === "view-" + view);
+      });
+      if (view === "workbench") {
+        renderWorkbench();
+      } else {
+        render();
+      }
+    }
+
+    function getAllSlicesWithSample(filteredSamples) {
+      const allSlices = [];
+      filteredSamples.forEach(sample => {
+        if (!sample || !Array.isArray(sample.slices)) return;
+        sample.slices.forEach(slice => {
+          allSlices.push({
+            sample,
+            slice
+          });
+        });
+      });
+      return allSlices;
+    }
+
+    function groupSlicesByStep(allSlices) {
+      const groups = {};
+      steps.forEach(step => {
+        groups[step] = [];
+      });
+      allSlices.forEach(item => {
+        const status = item.slice && item.slice.status ? item.slice.status : steps[0];
+        if (groups[status]) {
+          groups[status].push(item);
+        } else {
+          groups[steps[0]].push(item);
+        }
+      });
+      return groups;
+    }
+
+    function getNextStep(currentStep) {
+      const idx = steps.indexOf(currentStep);
+      if (idx >= 0 && idx < steps.length - 1) {
+        return steps[idx + 1];
+      }
+      return null;
+    }
+
+    function renderWorkbench() {
+      try {
+        workbenchError = null;
+        const filters = getFilters();
+        const filtered = applyFilters(samples, filters);
+        const allSlices = getAllSlicesWithSample(filtered);
+        const groups = groupSlicesByStep(allSlices);
+        const totalSlices = allSlices.length;
+
+        workbenchCountEl.textContent = totalSlices ? "工作台：共 " + totalSlices + " 个切片任务" : "没有符合条件的切片任务";
+
+        if (!samples.length) {
+          workbenchEl.innerHTML = '<div class="workbench-error">数据加载中，请稍后...</div>';
+          return;
+        }
+
+        workbenchEl.innerHTML = steps.map((step, index) => {
+          const stepSlices = groups[step] || [];
+          const cardsHtml = stepSlices.length ? stepSlices.map(item => {
+            const sample = item.sample || {};
+            const slice = item.slice || {};
+            const sampleId = sample.id || "";
+            const sliceId = slice.id || "";
+            const method = slice.method || "";
+            const project = sample.project || "";
+            const borehole = sample.borehole || "";
+            const coreBox = sample.coreBox || "";
+            const depth = sample.depth || "";
+            const owner = sample.owner || "";
+            const lastLog = slice.logs && slice.logs.length ? slice.logs[slice.logs.length - 1] : null;
+            const lastNote = lastLog && lastLog.note ? lastLog.note : "";
+            const nextStep = getNextStep(step);
+            const canObserve = slice.status === "观察";
+
+            return '<div class="workbench-card" data-workbench-card="' + sampleId + '|' + sliceId + '">' +
+              '<div class="workbench-card-id">' + sliceId + '</div>' +
+              '<div class="workbench-card-meta">' + method + '</div>' +
+              '<div class="workbench-card-meta">' + borehole + ' · ' + coreBox + ' · ' + depth + '</div>' +
+              '<div class="workbench-card-project">' + project + ' · ' + owner + '</div>' +
+              (lastNote ? '<div class="workbench-card-meta" style="margin-top:4px;color:var(--stone);font-style:italic;">' + lastNote + '</div>' : '') +
+              '<div class="workbench-card-actions" style="display:none;" data-workbench-actions="' + sampleId + '|' + sliceId + '">' +
+                '<textarea data-workbench-note="' + sampleId + '|' + sliceId + '" placeholder="步骤备注..."></textarea>' +
+                '<div class="row">' +
+                  '<select data-workbench-step="' + sampleId + '|' + sliceId + '">' +
+                    steps.map(s => '<option value="' + s + '"' + (s === step ? ' selected' : '') + '>' + s + '</option>').join("") +
+                  '</select>' +
+                  (nextStep ? '<button type="button" data-workbench-advance="' + sampleId + '|' + sliceId + '">推进到 ' + nextStep + '</button>' : '') +
+                '</div>' +
+                '<div class="row">' +
+                  '<button type="button" class="secondary" data-workbench-log="' + sampleId + '|' + sliceId + '">记录备注</button>' +
+                  (canObserve ? '<button type="button" class="secondary" data-workbench-obs="' + sampleId + '|' + sliceId + '">📝 观察结果</button>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }).join("") : '<div class="workbench-empty">暂无 ' + step + ' 任务</div>';
+
+          return '<div class="workbench-column">' +
+            '<div class="workbench-column-header">' +
+              '<h3><span class="step-indicator">' + (index + 1) + '</span>' + step + '</h3>' +
+              '<span class="workbench-column-count">' + stepSlices.length + '</span>' +
+            '</div>' +
+            '<div class="workbench-cards">' + cardsHtml + '</div>' +
+          '</div>';
+        }).join("");
+
+        bindWorkbenchEvents();
+      } catch (err) {
+        workbenchError = err.message;
+        workbenchEl.innerHTML = '<div class="workbench-error">工作台加载失败：' + err.message + '<br><button type="button" class="secondary" style="margin-top:10px;" onclick="location.reload()">重新加载</button></div>';
+      }
+    }
+
+    function bindWorkbenchEvents() {
+      document.querySelectorAll("[data-workbench-card]").forEach(card => {
+        card.onclick = (e) => {
+          if (e.target.closest("button") || e.target.closest("select") || e.target.closest("textarea")) return;
+          const key = card.dataset.workbenchCard;
+          const actions = document.querySelector('[data-workbench-actions="' + key + '"]');
+          if (actions) {
+            const isVisible = actions.style.display !== "none";
+            document.querySelectorAll("[data-workbench-actions]").forEach(a => {
+              if (a !== actions) a.style.display = "none";
+            });
+            actions.style.display = isVisible ? "none" : "flex";
+            if (!isVisible) {
+              const noteEl = document.querySelector('[data-workbench-note="' + key + '"]');
+              if (noteEl) noteEl.focus();
+            }
+          }
+        };
+      });
+
+      document.querySelectorAll("[data-workbench-step]").forEach(sel => {
+        const [sampleId, sliceId] = sel.dataset.workbenchStep.split("|");
+        try {
+          const sample = samples.find(s => s.id === sampleId);
+          if (sample) {
+            const slice = sample.slices.find(s => s.id === sliceId);
+            if (slice) sel.value = slice.status;
+          }
+        } catch (_) {}
+      });
+
+      document.querySelectorAll("[data-workbench-advance]").forEach(btn => {
+        btn.onclick = async () => {
+          const [sampleId, sliceId] = btn.dataset.workbenchAdvance.split("|");
+          try {
+            const sample = samples.find(s => s.id === sampleId);
+            if (!sample) return;
+            const slice = sample.slices.find(s => s.id === sliceId);
+            if (!slice) return;
+            const nextStep = getNextStep(slice.status);
+            if (!nextStep) return;
+            const noteEl = document.querySelector('[data-workbench-note="' + sampleId + '|' + sliceId + '"]');
+            const note = noteEl ? noteEl.value.trim() : "";
+            await api('/api/samples/' + sampleId + '/slices/' + sliceId + '/logs', {
+              method: 'POST',
+              body: JSON.stringify({ step: nextStep, note: note || (nextStep + "步骤完成") })
+            });
+            await load();
+          } catch (err) {
+            const msg = err.message || "推进失败";
+            alert(msg);
+          }
+        };
+      });
+
+      document.querySelectorAll("[data-workbench-log]").forEach(btn => {
+        btn.onclick = async () => {
+          const [sampleId, sliceId] = btn.dataset.workbenchLog.split("|");
+          try {
+            const stepEl = document.querySelector('[data-workbench-step="' + sampleId + '|' + sliceId + '"]');
+            const noteEl = document.querySelector('[data-workbench-note="' + sampleId + '|' + sliceId + '"]');
+            const step = stepEl ? stepEl.value : "";
+            const note = noteEl ? noteEl.value.trim() : "";
+            if (!step) {
+              alert("请选择步骤");
+              return;
+            }
+            await api('/api/samples/' + sampleId + '/slices/' + sliceId + '/logs', {
+              method: 'POST',
+              body: JSON.stringify({ step: step, note: note || "步骤完成" })
+            });
+            await load();
+          } catch (err) {
+            const msg = err.message || "记录失败";
+            alert(msg);
+          }
+        };
+      });
+
+      document.querySelectorAll("[data-workbench-obs]").forEach(btn => {
+        btn.onclick = () => {
+          const [sampleId, sliceId] = btn.dataset.workbenchObs.split("|");
+          openObservationModal(sampleId, sliceId);
+        };
+      });
+    }
+
     function openObservationModal(sampleId, sliceId) {
       const sample = samples.find(s => s.id === sampleId);
       if (!sample) return;
@@ -608,16 +869,29 @@ const page = `<!doctype html>
       document.querySelectorAll("[data-deliver]").forEach(btn => btn.onclick = async () => { await api('/api/samples/'+btn.dataset.deliver+'/deliver', { method:'POST', body: JSON.stringify({}) }); await load(); });
     }
     async function load(){
-      samples = await api("/api/samples");
+      try {
+        samples = await api("/api/samples");
+      } catch (err) {
+        samples = [];
+        console.error("Failed to load samples:", err);
+      }
       populateFilterOptions();
       const urlFilters = urlToFilters();
       if (Object.keys(urlFilters).length) setFilters(urlFilters);
-      render();
+      if (activeView === "workbench") {
+        renderWorkbench();
+      } else {
+        render();
+      }
     }
     function onFilterChange() {
       const filters = getFilters();
       history.replaceState(null, "", filtersToUrl(filters));
-      render();
+      if (activeView === "workbench") {
+        renderWorkbench();
+      } else {
+        render();
+      }
     }
     filterFields.forEach(field => {
       const el = document.querySelector("#filter-" + field);
@@ -629,9 +903,16 @@ const page = `<!doctype html>
         if (el) el.value = "";
       });
       history.replaceState(null, "", location.pathname);
-      render();
+      if (activeView === "workbench") {
+        renderWorkbench();
+      } else {
+        render();
+      }
     };
     document.querySelector("#reload").onclick = load;
+    document.querySelectorAll(".view-tab").forEach(tab => {
+      tab.onclick = () => switchView(tab.dataset.view);
+    });
     document.querySelector("#add-create-slice").onclick = () => {
       createSliceRowsEl.appendChild(createSliceRow());
     };
