@@ -1,6 +1,96 @@
 {
   "samples": [
     {
+      "id": "CORE-1781682377671",
+      "project": "测试项目批量",
+      "borehole": "ZK-TEST-890",
+      "coreBox": "BX-TEST-890",
+      "depth": "100.0-100.5m",
+      "owner": "测试员",
+      "status": "制片中",
+      "delivery": "未交付",
+      "slices": [
+        {
+          "id": "SL-890-A",
+          "method": "普通薄片",
+          "observation": "",
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T07:46:17.672Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-890-B",
+          "method": "茜素红染色",
+          "observation": "",
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T07:46:17.672Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-890-C",
+          "method": "光片",
+          "observation": "",
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T07:46:17.672Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-890-F",
+          "method": "普通薄片",
+          "observation": "",
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T07:46:17.700Z",
+              "step": "取样",
+              "note": "批量追加切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-890-G",
+          "method": "茜素红染色",
+          "observation": "",
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T07:46:17.700Z",
+              "step": "取样",
+              "note": "批量追加切片任务"
+            }
+          ]
+        },
+        {
+          "id": "SL-890-H",
+          "method": "光片",
+          "observation": "",
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-17T07:46:17.700Z",
+              "step": "取样",
+              "note": "批量追加切片任务"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "CORE-001",
       "project": "东岭铜矿薄片",
       "borehole": "ZK-17",
