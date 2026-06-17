@@ -344,7 +344,7 @@ const page = `<!doctype html>
       row.className = "slice-row";
       row.innerHTML = '<input placeholder="切片编号，如 SL-001-A" value="' + initialId + '" data-slice-id><input placeholder="染色方法，如 普通薄片" value="' + initialMethod + '" data-slice-method><button type="button" class="secondary row-btn" data-remove-row title="删除此行">×</button>';
       row.querySelector("[data-remove-row]").onclick = () => {
-        if (createSliceRowsEl.children.length > 1) row.remove();
+        if (row.parentElement && row.parentElement.children.length > 1) row.remove();
       };
       return row;
     }
