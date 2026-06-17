@@ -2549,10 +2549,59 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      function sliceHasObservation(slice) {
+        if (!slice) return false;
+        const observations = Array.isArray(slice.observations) ? slice.observations : [];
+        if (observations.length > 0) return true;
+        const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
+        return legacyObs.length > 0;
+      }
+
+      function getSliceObservationTime(slice) {
+        if (!slice) return null;
+        const observations = Array.isArray(slice.observations) ? slice.observations : [];
+        for (let i = observations.length - 1; i >= 0; i--) {
+          const t = safeParseDate(observations[i].at);
+          if (t !== null) return { time: t, iso: observations[i].at };
+        }
+        return null;
+      }
+
+      function isSliceDone(slice, sampleDelivered, parsedLogs) {
+        if (sampleDelivered) return true;
+        const hasObs = sliceHasObservation(slice);
+        const status = slice.status || "";
+        if (hasObs && status === "观察") return true;
+        if (parsedLogs && parsedLogs.length > 0) {
+          const lastStep = parsedLogs[parsedLogs.length - 1].step;
+          if (hasObs && lastStep === "观察") return true;
+        }
+        return false;
+      }
+
+      function ensureOwnerBacklog(owner) {
+        if (!ownerBacklog[owner]) {
+          ownerBacklog[owner] = { owner: owner, total: 0 };
+          taskSteps.forEach(step => { ownerBacklog[owner][step] = 0; });
+        }
+        return ownerBacklog[owner];
+      }
+
+      function addToBacklog(owner, status) {
+        const bl = ensureOwnerBacklog(owner);
+        bl.total++;
+        if (stepIndexMap[status] !== undefined) {
+          bl[status]++;
+        } else {
+          bl[taskSteps[0]]++;
+        }
+      }
+
       const sampleTimingsMap = {};
 
       filtered.forEach(sample => {
         if (!sample.slices || !Array.isArray(sample.slices)) return;
+        const sampleDelivered = sample.delivery === "已交付";
 
         if (!sampleTimingsMap[sample.id]) {
           sampleTimingsMap[sample.id] = {
@@ -2575,81 +2624,113 @@ const server = http.createServer(async (req, res) => {
         const st = sampleTimingsMap[sample.id];
 
         sample.slices.forEach(slice => {
+          const sliceStatus = slice.status || taskSteps[0];
           const rawLogs = slice.logs || [];
-          if (!Array.isArray(rawLogs) || rawLogs.length === 0) {
-            const sliceStatus = slice.status || taskSteps[0];
-            if (!ownerBacklog[sample.owner]) {
-              ownerBacklog[sample.owner] = { owner: sample.owner, total: 0 };
-              taskSteps.forEach(step => { ownerBacklog[sample.owner][step] = 0; });
-            }
-            ownerBacklog[sample.owner].total++;
-            if (stepIndexMap[sliceStatus] !== undefined) {
-              ownerBacklog[sample.owner][sliceStatus]++;
-            }
-            allSliceTimings.push({
-              sampleId: sample.id,
-              sliceId: slice.id,
-              project: sample.project,
-              owner: sample.owner,
-              method: slice.method,
-              status: sliceStatus,
-              firstStep: null,
-              lastStep: null,
-              firstAt: null,
-              lastAt: null,
-              totalHours: 0,
-              totalDays: 0,
-              logsCount: 0,
-              stepDetails: [],
-              note: "无日志数据，无法计算耗时"
-            });
-            st.sliceCount++;
-            if (!st.note) st.note = "部分切片无日志数据";
-            return;
-          }
-
-          const parsedLogs = rawLogs
+          const parsedLogs = (Array.isArray(rawLogs) ? rawLogs : [])
             .map(log => ({ ...log, _time: safeParseDate(log.at) }))
             .filter(log => log._time !== null && log.step)
             .sort((a, b) => a._time - b._time);
 
-          if (parsedLogs.length === 0) {
-            const sliceStatus = slice.status || taskSteps[0];
-            if (!ownerBacklog[sample.owner]) {
-              ownerBacklog[sample.owner] = { owner: sample.owner, total: 0 };
-              taskSteps.forEach(step => { ownerBacklog[sample.owner][step] = 0; });
-            }
-            ownerBacklog[sample.owner].total++;
-            if (stepIndexMap[sliceStatus] !== undefined) {
-              ownerBacklog[sample.owner][sliceStatus]++;
-            }
-            allSliceTimings.push({
-              sampleId: sample.id,
-              sliceId: slice.id,
-              project: sample.project,
-              owner: sample.owner,
-              method: slice.method,
-              status: sliceStatus,
-              firstStep: null,
-              lastStep: null,
-              firstAt: null,
-              lastAt: null,
-              totalHours: 0,
-              totalDays: 0,
-              logsCount: 0,
-              stepDetails: [],
-              note: "日志日期无效，无法计算耗时"
-            });
+          const done = isSliceDone(slice, sampleDelivered, parsedLogs);
+          const obsTime = getSliceObservationTime(slice);
+
+          if (done) {
             st.sliceCount++;
-            if (!st.note) st.note = "部分切片日志日期无效";
+            st.completedSlices++;
+          } else {
+            st.sliceCount++;
+            addToBacklog(sample.owner, sliceStatus);
+          }
+
+          if (parsedLogs.length === 0) {
+            if (done && obsTime) {
+              const firstTime = obsTime.time;
+              const lastTime = obsTime.time;
+              const totalTimeMs = lastTime - firstTime;
+              allSliceTimings.push({
+                sampleId: sample.id,
+                sliceId: slice.id,
+                project: sample.project,
+                owner: sample.owner,
+                method: slice.method,
+                status: sliceStatus,
+                firstStep: "观察",
+                lastStep: "观察",
+                firstAt: obsTime.iso,
+                lastLogAt: obsTime.iso,
+                lastAt: obsTime.iso,
+                totalHours: totalTimeMs / (1000 * 60 * 60),
+                totalDays: totalTimeMs / (1000 * 60 * 60 * 24),
+                logsCount: 0,
+                stepDetails: [],
+                isComplete: true,
+                note: sampleDelivered ? "样本已交付（步骤日志缺失）" : "仅有观察记录（步骤日志缺失）"
+              });
+              if (!st.firstAt || firstTime < new Date(st.firstAt).getTime()) st.firstAt = obsTime.iso;
+              if (!st.lastAt || lastTime > new Date(st.lastAt).getTime()) st.lastAt = obsTime.iso;
+            } else if (done) {
+              allSliceTimings.push({
+                sampleId: sample.id,
+                sliceId: slice.id,
+                project: sample.project,
+                owner: sample.owner,
+                method: slice.method,
+                status: sliceStatus,
+                firstStep: null,
+                lastStep: null,
+                firstAt: null,
+                lastLogAt: null,
+                lastAt: null,
+                totalHours: 0,
+                totalDays: 0,
+                logsCount: 0,
+                stepDetails: [],
+                isComplete: true,
+                note: sampleDelivered ? "样本已交付（无可用日志时间）" : "观察已完成（无可用日志时间）"
+              });
+              if (!st.note) st.note = "部分切片完成但缺少日志时间";
+            } else {
+              allSliceTimings.push({
+                sampleId: sample.id,
+                sliceId: slice.id,
+                project: sample.project,
+                owner: sample.owner,
+                method: slice.method,
+                status: sliceStatus,
+                firstStep: null,
+                lastStep: null,
+                firstAt: null,
+                lastLogAt: null,
+                lastAt: null,
+                totalHours: 0,
+                totalDays: 0,
+                logsCount: 0,
+                stepDetails: [],
+                isComplete: false,
+                note: "无日志数据，无法计算耗时"
+              });
+              if (!st.note) st.note = "部分切片无日志数据";
+            }
             return;
           }
 
           const firstLog = parsedLogs[0];
           const lastLog = parsedLogs[parsedLogs.length - 1];
           const firstTime = firstLog._time;
-          const isComplete = lastLog.step === "观察";
-          const lastTime = isComplete ? lastLog._time : now;
+          let lastTime;
+          let lastAtIso;
+          if (done) {
+            if (obsTime) {
+              lastTime = Math.max(obsTime.time, lastLog._time);
+              lastAtIso = lastTime === obsTime.time ? obsTime.iso : lastLog.at;
+            } else {
+              lastTime = lastLog._time;
+              lastAtIso = lastLog.at;
+            }
+          } else {
+            lastTime = now;
+            lastAtIso = new Date(now).toISOString();
+          }
 
           const totalTimeMs = lastTime - firstTime;
 
@@ -2659,17 +2740,17 @@ const server = http.createServer(async (req, res) => {
             project: sample.project,
             owner: sample.owner,
             method: slice.method,
-            status: slice.status || lastLog.step,
+            status: sliceStatus,
             firstStep: firstLog.step,
-            lastStep: lastLog.step,
+            lastStep: done ? "观察" : lastLog.step,
             firstAt: firstLog.at,
             lastLogAt: lastLog.at,
-            lastAt: isComplete ? lastLog.at : new Date(now).toISOString(),
+            lastAt: lastAtIso,
             totalHours: totalTimeMs / (1000 * 60 * 60),
             totalDays: totalTimeMs / (1000 * 60 * 60 * 24),
             logsCount: parsedLogs.length,
             stepDetails: [],
-            isComplete: isComplete
+            isComplete: done
           };
 
           for (let i = 0; i < parsedLogs.length; i++) {
@@ -2677,14 +2758,23 @@ const server = http.createServer(async (req, res) => {
             const currentTime = parsedLogs[i]._time;
             let nextTime;
             let nextStep;
+            let nextAt;
             if (i < parsedLogs.length - 1) {
               nextTime = parsedLogs[i + 1]._time;
               nextStep = parsedLogs[i + 1].step;
-            } else if (!isComplete) {
+              nextAt = parsedLogs[i + 1].at;
+            } else if (done) {
+              if (obsTime && obsTime.time > currentTime) {
+                nextTime = obsTime.time;
+                nextStep = "观察完成";
+                nextAt = obsTime.iso;
+              } else {
+                continue;
+              }
+            } else {
               nextTime = now;
               nextStep = "(进行中)";
-            } else {
-              continue;
+              nextAt = new Date(now).toISOString();
             }
 
             const dwellMs = nextTime - currentTime;
@@ -2695,7 +2785,7 @@ const server = http.createServer(async (req, res) => {
               to: nextStep,
               dwellHours,
               fromAt: parsedLogs[i].at,
-              toAt: i < parsedLogs.length - 1 ? parsedLogs[i + 1].at : new Date(now).toISOString()
+              toAt: nextAt
             });
 
             if (stepDwellSums[currentStep] !== undefined) {
@@ -2704,16 +2794,29 @@ const server = http.createServer(async (req, res) => {
             }
           }
 
+          if (done && timing.stepDetails.length === 0 && parsedLogs.length > 0) {
+            if (obsTime) {
+              const dwellMs = obsTime.time - firstLog._time;
+              timing.stepDetails.push({
+                from: firstLog.step,
+                to: "观察完成",
+                dwellHours: dwellMs / (1000 * 60 * 60),
+                fromAt: firstLog.at,
+                toAt: obsTime.iso
+              });
+            }
+          }
+
           allSliceTimings.push(timing);
 
-          st.sliceCount++;
-          if (isComplete) st.completedSlices++;
           if (firstTime && (!st.firstAt || firstTime < new Date(st.firstAt).getTime())) {
             st.firstAt = firstLog.at;
           }
-          if (isComplete) {
-            if (!st.lastAt || lastLog._time > new Date(st.lastAt).getTime()) {
-              st.lastAt = lastLog.at;
+          if (done) {
+            const doneTime = obsTime ? Math.max(obsTime.time, lastLog._time) : lastLog._time;
+            const doneIso = obsTime && doneTime === obsTime.time ? obsTime.iso : lastLog.at;
+            if (!st.lastAt || doneTime > new Date(st.lastAt).getTime()) {
+              st.lastAt = doneIso;
             }
           } else {
             const nowIso = new Date(now).toISOString();
@@ -2721,32 +2824,17 @@ const server = http.createServer(async (req, res) => {
               st.lastAt = nowIso;
             }
           }
-
-          if (!ownerBacklog[sample.owner]) {
-            ownerBacklog[sample.owner] = { owner: sample.owner, total: 0 };
-            taskSteps.forEach(step => { ownerBacklog[sample.owner][step] = 0; });
-          }
-          ownerBacklog[sample.owner].total++;
-          const currentStatus = slice.status || lastLog.step;
-          const currentStepIndex = stepIndexMap[currentStatus] !== undefined ? stepIndexMap[currentStatus] : 0;
-          if (!isComplete) {
-            if (stepIndexMap[currentStatus] !== undefined) {
-              ownerBacklog[sample.owner][currentStatus]++;
-            } else {
-              ownerBacklog[sample.owner][taskSteps[currentStepIndex]]++;
-            }
-          }
         });
       });
 
       const sampleTimings = Object.values(sampleTimingsMap);
       sampleTimings.forEach(st => {
-        if (st.firstAt && st.lastAt) {
+        if (st.sliceCount === 0) {
+          st.note = "无切片数据";
+        } else if (st.firstAt && st.lastAt) {
           const ms = new Date(st.lastAt).getTime() - new Date(st.firstAt).getTime();
           st.totalHours = ms / (1000 * 60 * 60);
           st.isComplete = st.completedSlices === st.sliceCount;
-        } else if (st.sliceCount === 0) {
-          st.note = "无切片数据";
         } else if (!st.note) {
           st.note = "日志数据不足，无法计算耗时";
         }
