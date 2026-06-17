@@ -12,6 +12,46 @@ const taskSteps = ["取样", "切割", "研磨", "染色", "观察"];
 const SLICE_ID_PATTERN = /^SL-\d+-[A-Za-z]+$/;
 
 const seed = {
+  deliveries: [
+    {
+      id: "DLV-001",
+      sampleId: "CORE-004",
+      deliveredAt: "2026-06-06T10:30:00.000Z",
+      deliveredBy: "李雪",
+      receivingUnit: "地质分析中心",
+      remark: "西山金矿首批薄片交付，共1个切片",
+      slices: [
+        { id: "SL-004-A", method: "光片", status: "观察", hasObservation: true, observationId: "OBS-004" }
+      ],
+      sampleSnapshot: {
+        id: "CORE-004",
+        project: "西山金矿勘探",
+        borehole: "ZK-05",
+        coreBox: "BX-12",
+        depth: "245.2-245.6m",
+        owner: "陈明"
+      }
+    },
+    {
+      id: "DLV-002",
+      sampleId: "CORE-009",
+      deliveredAt: "2026-05-25T14:00:00.000Z",
+      deliveredBy: "王涛",
+      receivingUnit: "岩矿鉴定实验室",
+      remark: "铅锌矿光片交付，含黄铜矿固溶体分离特征",
+      slices: [
+        { id: "SL-009-A", method: "光片", status: "观察", hasObservation: true, observationId: "OBS-009" }
+      ],
+      sampleSnapshot: {
+        id: "CORE-009",
+        project: "北山铅锌矿",
+        borehole: "ZK-22",
+        coreBox: "BX-16",
+        depth: "195.2-195.6m",
+        owner: "王涛"
+      }
+    }
+  ],
   samples: [
     {
       id: "CORE-001",
@@ -154,6 +194,10 @@ async function loadDb() {
   }
   const db = JSON.parse(await readFile(dbPath, "utf8"));
   let needSave = false;
+  if (!Array.isArray(db.deliveries)) {
+    db.deliveries = [];
+    needSave = true;
+  }
   db.samples.forEach(sample => {
     sample.slices.forEach(slice => {
       if (!Array.isArray(slice.observations)) {
@@ -307,6 +351,43 @@ const page = `<!doctype html>
     @media (max-width:800px){ .workbench{grid-template-columns:1fr 1fr;} }
     @media (max-width:500px){ .workbench{grid-template-columns:1fr;} }
     @media (max-width:950px){ header{display:block;padding:18px 16px;} main{grid-template-columns:1fr;padding:16px;} .stats{grid-template-columns:1fr 1fr;} .view-tabs{margin-top:12px;} }
+    .delivery-modal { width: 780px; }
+    .delivery-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .delivery-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+    .delivery-section h3 { margin: 0 0 10px; font-size: 15px; color: var(--stone); }
+    .delivery-basic-info { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; }
+    .delivery-basic-info div { font-size: 13px; }
+    .delivery-basic-info div b { color: var(--stone); margin-right: 6px; }
+    .slice-status-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .slice-status-table th, .slice-status-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+    .slice-status-table th { background: #f5f8f0; font-weight: 600; color: var(--stone); }
+    .slice-status-table tr:hover td { background: #fafcf6; }
+    .status-ok { color: var(--accent); font-weight: 600; }
+    .status-warn { color: var(--danger); font-weight: 600; }
+    .missing-list { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 6px; padding: 10px 12px; }
+    .missing-list ul { margin: 6px 0 0 0; padding-left: 20px; }
+    .missing-list li { color: var(--danger); font-size: 13px; margin: 2px 0; }
+    .complete-info { background: #edf5e8; border: 1px solid #c6dcb8; border-radius: 6px; padding: 10px 12px; color: var(--accent); font-size: 13px; }
+    .logs-summary { max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; }
+    .logs-summary-item { padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .logs-summary-item:last-child { border-bottom: 0; }
+    .logs-summary-item .log-time { color: var(--muted); margin-right: 8px; }
+    .logs-summary-item .log-step { display: inline-block; background: #e7ece1; padding: 1px 6px; border-radius: 4px; margin-right: 6px; font-weight: 600; color: var(--stone); }
+    .logs-summary-item .log-slice { color: var(--accent); font-weight: 600; margin-right: 6px; }
+    .delivery-form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 10px; }
+    .delivery-form-row .full { grid-column: 1 / -1; }
+    .deliveries-list { display: flex; flex-direction: column; gap: 12px; }
+    .delivery-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .delivery-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .delivery-card-id { font-size: 15px; font-weight: 700; color: var(--accent); }
+    .delivery-card-time { font-size: 12px; color: var(--muted); }
+    .delivery-card-info { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; font-size: 13px; margin-bottom: 10px; }
+    .delivery-card-info b { color: var(--stone); }
+    .delivery-card-slices { background: #f5f8f0; border-radius: 6px; padding: 10px; font-size: 12px; }
+    .delivery-card-slices b { color: var(--stone); display: block; margin-bottom: 4px; }
+    .delivery-card-slices .slice-item { display: inline-block; background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; margin: 3px 6px 3px 0; }
+    .delivery-card-remark { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--stone); }
+    .delivery-empty { padding: 60px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -319,12 +400,13 @@ const page = `<!doctype html>
       <div class="view-tabs" id="view-tabs">
         <button type="button" class="view-tab active" data-view="cards">样本卡片</button>
         <button type="button" class="view-tab" data-view="workbench">实验室工作台</button>
+        <button type="button" class="view-tab" data-view="deliveries">历史交付包</button>
       </div>
       <button id="reload">刷新</button>
     </div>
   </header>
   <main>
-    <form id="form">
+    <form id="form" class="sample-form">
       <h2>创建岩芯样本</h2>
       <label>项目</label><input name="project" required>
       <label>钻孔编号</label><input name="borehole" required>
@@ -349,46 +431,72 @@ const page = `<!doctype html>
       </div>
     </form>
     <section>
-      <div class="filter-panel">
-        <h2>样本筛选</h2>
-        <div class="filter-row">
-          <div>
-            <label>项目</label>
-            <select id="filter-project"><option value="">全部项目</option></select>
+      <div id="view-samples-area">
+        <div class="filter-panel">
+          <h2>样本筛选</h2>
+          <div class="filter-row">
+            <div>
+              <label>项目</label>
+              <select id="filter-project"><option value="">全部项目</option></select>
+            </div>
+            <div>
+              <label>钻孔编号</label>
+              <select id="filter-borehole"><option value="">全部钻孔</option></select>
+            </div>
+            <div>
+              <label>岩芯箱号</label>
+              <select id="filter-corebox"><option value="">全部箱号</option></select>
+            </div>
+            <div>
+              <label>负责人</label>
+              <select id="filter-owner"><option value="">全部负责人</option></select>
+            </div>
+            <div>
+              <label>样本状态</label>
+              <select id="filter-status"><option value="">全部状态</option></select>
+            </div>
+            <div>
+              <label>交付状态</label>
+              <select id="filter-delivery"><option value="">全部</option><option value="未交付">未交付</option><option value="已交付">已交付</option></select>
+            </div>
           </div>
-          <div>
-            <label>钻孔编号</label>
-            <select id="filter-borehole"><option value="">全部钻孔</option></select>
-          </div>
-          <div>
-            <label>岩芯箱号</label>
-            <select id="filter-corebox"><option value="">全部箱号</option></select>
-          </div>
-          <div>
-            <label>负责人</label>
-            <select id="filter-owner"><option value="">全部负责人</option></select>
-          </div>
-          <div>
-            <label>样本状态</label>
-            <select id="filter-status"><option value="">全部状态</option></select>
-          </div>
-          <div>
-            <label>交付状态</label>
-            <select id="filter-delivery"><option value="">全部</option><option value="未交付">未交付</option><option value="已交付">已交付</option></select>
+          <div class="filter-actions">
+            <button type="button" class="secondary" id="clear-filters">清除筛选</button>
           </div>
         </div>
-        <div class="filter-actions">
-          <button type="button" class="secondary" id="clear-filters">清除筛选</button>
+        <div class="stats" id="stats"></div>
+        <div id="view-cards" class="view-content active">
+          <div class="result-count" id="result-count"></div>
+          <div class="grid" id="samples"></div>
+        </div>
+        <div id="view-workbench" class="view-content">
+          <div class="result-count" id="workbench-count"></div>
+          <div class="workbench" id="workbench"></div>
         </div>
       </div>
-      <div class="stats" id="stats"></div>
-      <div id="view-cards" class="view-content active">
-        <div class="result-count" id="result-count"></div>
-        <div class="grid" id="samples"></div>
-      </div>
-      <div id="view-workbench" class="view-content">
-        <div class="result-count" id="workbench-count"></div>
-        <div class="workbench" id="workbench"></div>
+      <div id="view-deliveries" class="view-content">
+        <div class="filter-panel">
+          <h2>交付包筛选</h2>
+          <div class="filter-row">
+            <div>
+              <label>项目</label>
+              <select id="delivery-filter-project"><option value="">全部项目</option></select>
+            </div>
+            <div>
+              <label>接收单位</label>
+              <select id="delivery-filter-unit"><option value="">全部单位</option></select>
+            </div>
+            <div>
+              <label>交付人</label>
+              <select id="delivery-filter-person"><option value="">全部交付人</option></select>
+            </div>
+          </div>
+          <div class="filter-actions">
+            <button type="button" class="secondary" id="clear-delivery-filters">清除筛选</button>
+          </div>
+        </div>
+        <div class="result-count" id="deliveries-count"></div>
+        <div class="deliveries-list" id="deliveries"></div>
       </div>
     </section>
   </main>
@@ -405,10 +513,15 @@ const page = `<!doctype html>
     const createSliceRowsEl = document.querySelector("#create-slice-rows");
     const createAlertEl = document.querySelector("#create-alert");
     const modalRoot = document.querySelector("#modal-root");
+    const deliveriesEl = document.querySelector("#deliveries");
+    const deliveriesCountEl = document.querySelector("#deliveries-count");
+    const viewSamplesArea = document.querySelector("#view-samples-area");
     let samples = [];
+    let deliveries = [];
     let workbenchError = null;
     let activeView = "cards";
     const filterFields = ["project", "borehole", "corebox", "owner", "status", "delivery"];
+    const deliveryFilterFields = ["project", "unit", "person"];
 
     function createSliceRow(initialId = "", initialMethod = "") {
       const row = document.createElement("div");
@@ -572,13 +685,25 @@ const page = `<!doctype html>
       document.querySelectorAll(".view-tab").forEach(tab => {
         tab.classList.toggle("active", tab.dataset.view === view);
       });
-      document.querySelectorAll(".view-content").forEach(content => {
-        content.classList.toggle("active", content.id === "view-" + view);
-      });
-      if (view === "workbench") {
-        renderWorkbench();
+      if (view === "deliveries") {
+        viewSamplesArea.style.display = "none";
+        form.style.display = "none";
+        document.querySelector("#view-deliveries").classList.add("active");
+        document.querySelector("#view-cards").classList.remove("active");
+        document.querySelector("#view-workbench").classList.remove("active");
+        renderDeliveries();
       } else {
-        render();
+        viewSamplesArea.style.display = "";
+        form.style.display = "";
+        document.querySelector("#view-deliveries").classList.remove("active");
+        document.querySelectorAll(".view-content").forEach(content => {
+          content.classList.toggle("active", content.id === "view-" + view);
+        });
+        if (view === "workbench") {
+          renderWorkbench();
+        } else {
+          render();
+        }
       }
     }
 
@@ -841,7 +966,9 @@ const page = `<!doctype html>
           if (item.obs.texture) parts.push(item.obs.texture);
           return item.sliceId + '[' + parts.join('；') + ']';
         }).join(' ') + '</div>' : '';
-        return '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+sample.delivery+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + summaryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
+        const deliveryHistory = deliveries.filter(d => d.sampleId === sample.id);
+        const deliveryHistoryHtml = deliveryHistory.length ? '<div class="meta" style="margin-top:6px;"><b style="color:var(--accent);">历史交付（'+deliveryHistory.length+'）：</b>' + deliveryHistory.map(d => d.id + '（' + formatObsDate(d.deliveredAt) + '）').join('、') + '</div>' : '';
+        return '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+sample.delivery+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + summaryHtml + deliveryHistoryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
           const observations = slice.observations || [];
           const lastObs = observations.length ? observations[observations.length - 1] : null;
           const obsSummaryHtml = lastObs ? '<div class="obs-summary" style="margin-top:10px;"><div class="obs-header"><span class="label">最近观察（' + formatObsDate(lastObs.at) + '）</span>' + (observations.length > 1 ? '<span class="obs-date">共 '+observations.length+' 条</span>' : '') + '</div>' + (lastObs.lithology ? '<div class="obs-row"><b>岩性：</b>' + lastObs.lithology + '</div>' : '') + (lastObs.minerals ? '<div class="obs-row"><b>矿物：</b>' + lastObs.minerals + '</div>' : '') + (lastObs.texture ? '<div class="obs-row"><b>结构构造：</b>' + lastObs.texture + '</div>' : '') + (lastObs.remark ? '<div class="obs-row"><b>备注：</b>' + lastObs.remark + '</div>' : '') + '</div>' : '';
@@ -866,20 +993,203 @@ const page = `<!doctype html>
         await api('/api/samples/'+sampleId+'/slices/'+sliceId+'/logs', { method:'POST', body: JSON.stringify({ step: document.querySelector('[data-step="'+sampleId+'|'+sliceId+'"]').value, note: document.querySelector('[data-note="'+sampleId+'|'+sliceId+'"]').value || "步骤完成" }) });
         await load();
       });
-      document.querySelectorAll("[data-deliver]").forEach(btn => btn.onclick = async () => { await api('/api/samples/'+btn.dataset.deliver+'/deliver', { method:'POST', body: JSON.stringify({}) }); await load(); });
+      document.querySelectorAll("[data-deliver]").forEach(btn => btn.onclick = () => openDeliveryConfirmModal(btn.dataset.deliver));
     }
+    function getDeliveryFilters() {
+      const f = {};
+      deliveryFilterFields.forEach(field => {
+        const el = document.querySelector("#delivery-filter-" + (field === "unit" ? "unit" : field === "person" ? "person" : field));
+        if (el && el.value) {
+          if (field === "unit") f.receivingUnit = el.value;
+          else if (field === "person") f.deliveredBy = el.value;
+          else f[field === "project" ? "project" : field] = el.value;
+        }
+      });
+      return f;
+    }
+    function applyDeliveryFilters(list, filters) {
+      return list.filter(item => {
+        for (const key in filters) {
+          if (filters[key]) {
+            if (key === "project") {
+              if (!item.sampleSnapshot || item.sampleSnapshot.project !== filters[key]) return false;
+            } else if (item[key] !== filters[key]) return false;
+          }
+        }
+        return true;
+      });
+    }
+    function populateDeliveryFilterOptions() {
+      const projects = [...new Set(deliveries.map(d => d.sampleSnapshot && d.sampleSnapshot.project).filter(Boolean))].sort();
+      const units = [...new Set(deliveries.map(d => d.receivingUnit).filter(Boolean))].sort();
+      const persons = [...new Set(deliveries.map(d => d.deliveredBy).filter(Boolean))].sort();
+      const projectSel = document.querySelector("#delivery-filter-project");
+      if (projectSel) {
+        const current = projectSel.value;
+        projectSel.innerHTML = '<option value="">全部项目</option>' + projects.map(v => '<option value="' + v + '">' + v + '</option>').join("");
+        projectSel.value = current;
+      }
+      const unitSel = document.querySelector("#delivery-filter-unit");
+      if (unitSel) {
+        const current = unitSel.value;
+        unitSel.innerHTML = '<option value="">全部单位</option>' + units.map(v => '<option value="' + v + '">' + v + '</option>').join("");
+        unitSel.value = current;
+      }
+      const personSel = document.querySelector("#delivery-filter-person");
+      if (personSel) {
+        const current = personSel.value;
+        personSel.innerHTML = '<option value="">全部交付人</option>' + persons.map(v => '<option value="' + v + '">' + v + '</option>').join("");
+        personSel.value = current;
+      }
+    }
+    function onDeliveryFilterChange() {
+      renderDeliveries();
+    }
+
+    async function openDeliveryConfirmModal(sampleId) {
+      const sample = samples.find(s => s.id === sampleId);
+      if (!sample) return;
+      let previewData = null;
+      const mask = document.createElement("div");
+      mask.className = "modal-mask";
+      const modal = document.createElement("div");
+      modal.className = "modal delivery-modal";
+      modal.innerHTML = '<h2>交付确认 — ' + sample.id + '</h2><div style="margin-top:16px;text-align:center;color:var(--muted);padding:20px;">正在加载交付预览数据...</div>';
+      mask.appendChild(modal);
+      modalRoot.appendChild(mask);
+      mask.onclick = e => { if (e.target === mask) mask.remove(); };
+      try {
+        previewData = await api('/api/samples/' + sampleId + '/delivery-preview');
+        renderDeliveryConfirmContent(modal, mask, previewData, sampleId);
+      } catch (err) {
+        modal.innerHTML = '<h2>交付确认 — ' + sample.id + '</h2><div class="alert" style="margin-top:16px;">加载失败：' + (err.message || '未知错误') + '</div><div class="modal-footer"><button type="button" class="secondary" id="dlg-cancel">关闭</button></div>';
+        modal.querySelector("#dlg-cancel").onclick = () => mask.remove();
+      }
+    }
+
+    function renderDeliveryConfirmContent(modal, mask, data, sampleId) {
+      const s = data.sample;
+      const slices = data.slices;
+      const allObserved = data.allObserved;
+
+      const basicInfoHtml = '<div class="delivery-section"><h3>样本基础信息</h3><div class="delivery-basic-info"><div><b>样本编号：</b>' + s.id + '</div><div><b>所属项目：</b>' + s.project + '</div><div><b>钻孔编号：</b>' + s.borehole + '</div><div><b>岩芯箱号：</b>' + s.coreBox + '</div><div><b>取样深度：</b>' + s.depth + '</div><div><b>负责人：</b>' + s.owner + '</div><div><b>样本状态：</b>' + s.status + '</div><div><b>交付状态：</b>' + s.delivery + '</div></div></div>';
+
+      const sliceTableHtml = '<div class="delivery-section"><h3>全部切片状态（' + data.observedCount + '/' + data.sliceCount + ' 已完成观察）</h3><table class="slice-status-table"><thead><tr><th>切片编号</th><th>染色方法</th><th>当前步骤</th><th>观察结果</th><th>最近日志</th></tr></thead><tbody>' + slices.map(slice => {
+        const isComplete = slice.status === "观察" && slice.hasObservation;
+        const statusClass = isComplete ? "status-ok" : "status-warn";
+        let statusText = "";
+        if (slice.status !== "观察") {
+          statusText = '<span class="status-warn">未到观察步骤（当前：' + slice.status + '）</span>';
+        } else if (!slice.hasObservation) {
+          statusText = '<span class="status-warn">已到观察步骤但未填写结果</span>';
+        } else {
+          statusText = '<span class="status-ok">✓ 已完成</span>';
+        }
+        const obsSummary = slice.observationSummary ? slice.observationSummary : '<span class="meta">—</span>';
+        const lastLogText = slice.lastLog ? (slice.lastLog.step + "：" + (slice.lastLog.note || "无备注")) : '<span class="meta">—</span>';
+        return '<tr><td><b>' + slice.id + '</b></td><td>' + slice.method + '</td><td><span class="' + statusClass + '">' + slice.status + '</span></td><td>' + statusText + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + obsSummary + '</div></td><td style="font-size:12px;">' + lastLogText + '</td></tr>';
+      }).join("") + '</tbody></table></div>';
+
+      let missingHtml = "";
+      if (!allObserved) {
+        const missingReasons = slices.filter(s => !(s.status === "观察" && s.hasObservation)).map(s => {
+          if (s.status !== "观察") {
+            return s.id + ' — 当前步骤为「' + s.status + '」，尚未进入观察步骤';
+          } else {
+            return s.id + ' — 已进入观察步骤但未填写观察结果';
+          }
+        });
+        missingHtml = '<div class="delivery-section"><div class="missing-list"><b style="color:var(--danger);">⚠ 观察结果缺失，无法生成交付记录</b><ul>' + missingReasons.map(r => '<li>' + r + '</li>').join("") + '</ul></div></div>';
+      } else {
+        missingHtml = '<div class="delivery-section"><div class="complete-info">✓ 全部切片已完成观察，可以生成交付记录</div></div>';
+      }
+
+      const logsHtml = '<div class="delivery-section"><h3>步骤日志摘要（最近 ' + data.logsSummary.length + ' 条 / 共 ' + data.totalLogs + ' 条）</h3><div class="logs-summary">' + data.logsSummary.map(log => {
+        return '<div class="logs-summary-item"><span class="log-time">' + formatObsDate(log.at) + '</span><span class="log-slice">' + log.sliceId + '</span><span class="log-step">' + log.step + '</span>' + (log.note || '<span class="meta">无备注</span>') + '</div>';
+      }).join("") + '</div></div>';
+
+      const formHtml = allObserved ? '<div class="delivery-section"><h3>交付信息录入</h3><div class="delivery-form-row"><div><label>交付人 *</label><input id="dlv-deliveredBy" placeholder="请输入交付人姓名"></div><div><label>接收单位 *</label><input id="dlv-receivingUnit" placeholder="请输入接收单位名称"></div><div class="full"><label>备注</label><textarea id="dlv-remark" placeholder="请输入备注信息（选填）"></textarea></div></div><div id="dlv-alert" style="margin-top:10px;"></div></div>' : "";
+
+      const footerHtml = '<div class="modal-footer"><button type="button" class="secondary" id="dlv-cancel">取消</button>' + (allObserved ? '<button type="button" id="dlv-confirm">生成交付记录</button>' : "") + '</div>';
+
+      modal.innerHTML = '<h2>交付确认 — ' + s.id + '</h2>' + basicInfoHtml + sliceTableHtml + missingHtml + logsHtml + formHtml + footerHtml;
+
+      modal.querySelector("#dlv-cancel").onclick = () => mask.remove();
+
+      if (allObserved) {
+        const sampleOwner = s.owner || "";
+        if (sampleOwner) {
+          modal.querySelector("#dlv-deliveredBy").value = sampleOwner;
+        }
+        modal.querySelector("#dlv-confirm").onclick = async () => {
+          const deliveredBy = modal.querySelector("#dlv-deliveredBy").value.trim();
+          const receivingUnit = modal.querySelector("#dlv-receivingUnit").value.trim();
+          const remark = modal.querySelector("#dlv-remark").value.trim();
+          const alertEl = modal.querySelector("#dlv-alert");
+          if (!deliveredBy) {
+            showAlert(alertEl, ["请填写交付人"]);
+            return;
+          }
+          if (!receivingUnit) {
+            showAlert(alertEl, ["请填写接收单位"]);
+            return;
+          }
+          try {
+            await api('/api/samples/' + sampleId + '/deliveries', {
+              method: 'POST',
+              body: JSON.stringify({ deliveredBy, receivingUnit, remark })
+            });
+            mask.remove();
+            await load();
+          } catch (err) {
+            const msg = err.message;
+            try {
+              const parsed = JSON.parse(msg);
+              if (Array.isArray(parsed)) {
+                showAlert(alertEl, parsed);
+                return;
+              }
+            } catch (_) {}
+            showAlert(alertEl, [msg]);
+          }
+        };
+      }
+    }
+
+    function renderDeliveries() {
+      populateDeliveryFilterOptions();
+      const filters = getDeliveryFilters();
+      const filtered = applyDeliveryFilters(deliveries, filters);
+      deliveriesCountEl.textContent = filtered.length ? "筛选结果：共 " + filtered.length + " 个交付包" : "没有符合条件的交付包";
+      if (!filtered.length) {
+        deliveriesEl.innerHTML = '<div class="delivery-empty">还没有交付包记录。完成样本观察后，在「样本卡片」中点击「标记交付」按钮生成交付记录。</div>';
+        return;
+      }
+      deliveriesEl.innerHTML = filtered.map(d => {
+        const ss = d.sampleSnapshot || {};
+        return '<div class="delivery-card"><div class="delivery-card-header"><div class="delivery-card-id">' + d.id + '</div><div class="delivery-card-time">' + formatObsDate(d.deliveredAt) + '</div></div><div class="delivery-card-info"><div><b>样本编号：</b>' + (ss.id || "-") + '</div><div><b>所属项目：</b>' + (ss.project || "-") + '</div><div><b>钻孔/箱号：</b>' + (ss.borehole || "-") + ' / ' + (ss.coreBox || "-") + '</div><div><b>取样深度：</b>' + (ss.depth || "-") + '</div><div><b>交付人：</b>' + d.deliveredBy + '</div><div><b>接收单位：</b>' + d.receivingUnit + '</div></div><div class="delivery-card-slices"><b>包含切片（' + d.slices.length + ' 个）：</b>' + d.slices.map(s => '<span class="slice-item">' + s.id + '（' + s.method + '）</span>').join("") + '</div>' + (d.remark ? '<div class="delivery-card-remark"><b>备注：</b>' + d.remark + '</div>' : "") + '</div>';
+      }).join("");
+    }
+
     async function load(){
       try {
-        samples = await api("/api/samples");
+        [samples, deliveries] = await Promise.all([
+          api("/api/samples"),
+          api("/api/deliveries")
+        ]);
       } catch (err) {
         samples = [];
-        console.error("Failed to load samples:", err);
+        deliveries = [];
+        console.error("Failed to load data:", err);
       }
       populateFilterOptions();
+      populateDeliveryFilterOptions();
       const urlFilters = urlToFilters();
       if (Object.keys(urlFilters).length) setFilters(urlFilters);
       if (activeView === "workbench") {
         renderWorkbench();
+      } else if (activeView === "deliveries") {
+        renderDeliveries();
       } else {
         render();
       }
@@ -908,6 +1218,19 @@ const page = `<!doctype html>
       } else {
         render();
       }
+    };
+    deliveryFilterFields.forEach(field => {
+      const id = field === "unit" ? "delivery-filter-unit" : field === "person" ? "delivery-filter-person" : ("delivery-filter-" + field);
+      const el = document.querySelector("#" + id);
+      if (el) el.addEventListener("change", onDeliveryFilterChange);
+    });
+    document.querySelector("#clear-delivery-filters").onclick = () => {
+      deliveryFilterFields.forEach(field => {
+        const id = field === "unit" ? "delivery-filter-unit" : field === "person" ? "delivery-filter-person" : ("delivery-filter-" + field);
+        const el = document.querySelector("#" + id);
+        if (el) el.value = "";
+      });
+      renderDeliveries();
     };
     document.querySelector("#reload").onclick = load;
     document.querySelectorAll(".view-tab").forEach(tab => {
@@ -1060,14 +1383,138 @@ const server = http.createServer(async (req, res) => {
       await saveDb(db);
       return sendJson(res, 200, sample);
     }
-    const deliverMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/deliver$/);
-    if (deliverMatch && req.method === "POST") {
-      const sample = db.samples.find(item => item.id === deliverMatch[1]);
+    const deliveryPreviewMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/delivery-preview$/);
+    if (deliveryPreviewMatch && req.method === "GET") {
+      const sample = db.samples.find(item => item.id === deliveryPreviewMatch[1]);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      const slicesInfo = sample.slices.map(slice => {
+        const observations = slice.observations || [];
+        const lastObs = observations.length ? observations[observations.length - 1] : null;
+        return {
+          id: slice.id,
+          method: slice.method,
+          status: slice.status,
+          hasObservation: observations.length > 0,
+          observationId: lastObs ? lastObs.id : null,
+          observationSummary: lastObs ? [lastObs.lithology, lastObs.minerals, lastObs.texture].filter(Boolean).join("；") : "",
+          logsCount: slice.logs ? slice.logs.length : 0,
+          lastLog: slice.logs && slice.logs.length ? slice.logs[slice.logs.length - 1] : null
+        };
+      });
+      const allObserved = slicesInfo.length > 0 && slicesInfo.every(s => s.status === "观察" && s.hasObservation);
+      const missingObservations = slicesInfo.filter(s => !(s.status === "观察" && s.hasObservation)).map(s => s.id);
+      const logsSummary = [];
+      sample.slices.forEach(slice => {
+        if (slice.logs) {
+          slice.logs.forEach(log => {
+            logsSummary.push({
+              sliceId: slice.id,
+              at: log.at,
+              step: log.step,
+              note: log.note
+            });
+          });
+        }
+      });
+      logsSummary.sort((a, b) => new Date(b.at) - new Date(a.at));
+      return sendJson(res, 200, {
+        sample: {
+          id: sample.id,
+          project: sample.project,
+          borehole: sample.borehole,
+          coreBox: sample.coreBox,
+          depth: sample.depth,
+          owner: sample.owner,
+          status: sample.status,
+          delivery: sample.delivery
+        },
+        slices: slicesInfo,
+        allObserved,
+        missingObservations,
+        logsSummary: logsSummary.slice(0, 20),
+        totalLogs: logsSummary.length,
+        sliceCount: slicesInfo.length,
+        observedCount: slicesInfo.filter(s => s.hasObservation).length
+      });
+    }
+
+    const createDeliveryMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/deliveries$/);
+    if (createDeliveryMatch && req.method === "POST") {
+      const sampleId = createDeliveryMatch[1];
+      const sample = db.samples.find(item => item.id === sampleId);
+      if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      const slicesInfo = sample.slices.map(slice => {
+        const observations = slice.observations || [];
+        const lastObs = observations.length ? observations[observations.length - 1] : null;
+        return {
+          status: slice.status,
+          hasObservation: observations.length > 0,
+          observationId: lastObs ? lastObs.id : null
+        };
+      });
+      const allObserved = slicesInfo.length > 0 && slicesInfo.every(s => s.status === "观察" && s.hasObservation);
+      if (!allObserved) {
+        return sendJson(res, 400, { error: "全部切片完成观察后才能生成交付记录" });
+      }
+      const input = await body(req);
+      const deliveredBy = (input.deliveredBy || "").trim();
+      const receivingUnit = (input.receivingUnit || "").trim();
+      const remark = (input.remark || "").trim();
+      if (!deliveredBy) {
+        return sendJson(res, 400, { error: "请填写交付人" });
+      }
+      if (!receivingUnit) {
+        return sendJson(res, 400, { error: "请填写接收单位" });
+      }
+      const delivery = {
+        id: `DLV-${Date.now()}`,
+        sampleId,
+        deliveredAt: new Date().toISOString(),
+        deliveredBy,
+        receivingUnit,
+        remark,
+        slices: sample.slices.map(slice => {
+          const observations = slice.observations || [];
+          const lastObs = observations.length ? observations[observations.length - 1] : null;
+          return {
+            id: slice.id,
+            method: slice.method,
+            status: slice.status,
+            hasObservation: observations.length > 0,
+            observationId: lastObs ? lastObs.id : null
+          };
+        }),
+        sampleSnapshot: {
+          id: sample.id,
+          project: sample.project,
+          borehole: sample.borehole,
+          coreBox: sample.coreBox,
+          depth: sample.depth,
+          owner: sample.owner
+        }
+      };
+      db.deliveries.unshift(delivery);
       sample.delivery = "已交付";
       updateSampleStatus(sample);
       await saveDb(db);
-      return sendJson(res, 200, sample);
+      return sendJson(res, 201, delivery);
+    }
+
+    const listDeliveriesMatch = url.pathname.match(/^\/api\/deliveries$/);
+    if (listDeliveriesMatch && req.method === "GET") {
+      const sampleFilter = url.searchParams.get("sampleId");
+      let deliveries = db.deliveries;
+      if (sampleFilter) {
+        deliveries = deliveries.filter(d => d.sampleId === sampleFilter);
+      }
+      return sendJson(res, 200, deliveries);
+    }
+
+    const deliveryDetailMatch = url.pathname.match(/^\/api\/deliveries\/([^/]+)$/);
+    if (deliveryDetailMatch && req.method === "GET") {
+      const delivery = db.deliveries.find(item => item.id === deliveryDetailMatch[1]);
+      if (!delivery) return sendJson(res, 404, { error: "delivery_not_found" });
+      return sendJson(res, 200, delivery);
     }
 
     const observationMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/slices\/([^/]+)\/observations$/);

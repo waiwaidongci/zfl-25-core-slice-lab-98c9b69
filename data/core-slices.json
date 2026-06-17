@@ -485,5 +485,45 @@
         }
       ]
     }
+  ],
+  "deliveries": [
+    {
+      "id": "DLV-001",
+      "sampleId": "CORE-004",
+      "deliveredAt": "2026-06-06T10:30:00.000Z",
+      "deliveredBy": "李雪",
+      "receivingUnit": "地质分析中心",
+      "remark": "西山金矿首批薄片交付，共1个切片",
+      "slices": [
+        { "id": "SL-004-A", "method": "光片", "status": "观察", "hasObservation": true, "observationId": "OBS-004" }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-004",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-05",
+        "coreBox": "BX-12",
+        "depth": "245.2-245.6m",
+        "owner": "陈明"
+      }
+    },
+    {
+      "id": "DLV-002",
+      "sampleId": "CORE-009",
+      "deliveredAt": "2026-05-25T14:00:00.000Z",
+      "deliveredBy": "王涛",
+      "receivingUnit": "岩矿鉴定实验室",
+      "remark": "铅锌矿光片交付，含黄铜矿固溶体分离特征",
+      "slices": [
+        { "id": "SL-009-A", "method": "光片", "status": "观察", "hasObservation": true, "observationId": "OBS-009" }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-009",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-16",
+        "depth": "195.2-195.6m",
+        "owner": "王涛"
+      }
+    }
   ]
 }
