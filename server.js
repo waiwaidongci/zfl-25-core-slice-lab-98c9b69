@@ -1508,11 +1508,13 @@ const server = http.createServer(async (req, res) => {
         slices: sample.slices.map(slice => {
           const observations = slice.observations || [];
           const lastObs = observations.length ? observations[observations.length - 1] : null;
+          const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
+          const hasObservation = observations.length > 0 || legacyObs.length > 0;
           return {
             id: slice.id,
             method: slice.method,
             status: slice.status,
-            hasObservation: observations.length > 0,
+            hasObservation,
             observationId: lastObs ? lastObs.id : null
           };
         }),
