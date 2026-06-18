@@ -491,7 +491,7 @@
       "id": "M-003",
       "name": "光片",
       "description": "不透明矿物光片制片，用于反光显微镜观察",
-      "enabled": false,
+      "enabled": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
       "sortOrder": 3,
       "isDefault": false
@@ -513,15 +513,6 @@
       "createdAt": "2026-01-01T00:00:00.000Z",
       "sortOrder": 5,
       "isDefault": false
-    },
-    {
-      "id": "M-1781788229965",
-      "name": "测试工艺",
-      "description": "这是一个测试工艺",
-      "enabled": true,
-      "isDefault": false,
-      "createdAt": "2026-06-18T13:10:29.965Z",
-      "sortOrder": 6
     }
   ],
   "auditLog": [
