@@ -1124,7 +1124,10 @@ const page = `<!doctype html>
 
       <div id="import-csv" class="import-content">
         <h2>CSV批量导入</h2>
-        <div class="format-hint" style="margin-bottom:10px;">支持列名：项目、钻孔编号、岩芯箱号、取样深度、负责人、切片编号、染色方法、样本编号（选填，用于追加到已有样本）</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div class="format-hint">支持列名：项目、钻孔编号、岩芯箱号、取样深度、负责人、切片编号、染色方法、样本编号（选填，用于追加到已有样本）</div>
+          <button type="button" class="secondary" id="csv-download-template" style="padding:6px 12px;font-size:13px;">📥 下载CSV模板</button>
+        </div>
         <div class="csv-upload-area" id="csv-upload-area">
           <div class="csv-upload-icon">📄</div>
           <div class="csv-upload-text">
@@ -3107,6 +3110,11 @@ const page = `<!doctype html>
     const csvImportBtn = document.querySelector("#csv-import-btn");
     const csvResetBtn = document.querySelector("#csv-reset-btn");
     const csvImportResult = document.querySelector("#csv-import-result");
+    const csvDownloadTemplateBtn = document.querySelector("#csv-download-template");
+
+    csvDownloadTemplateBtn.onclick = () => {
+      window.location.href = "/api/csv/template";
+    };
 
     csvUploadArea.onclick = () => csvFileInput.click();
     csvFileInput.onchange = e => {
@@ -3707,6 +3715,34 @@ const server = http.createServer(async (req, res) => {
         await saveDb(db);
         return sendJson(res, 201, { sample, record });
       }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/csv/template") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const headers = ["样本编号", "项目", "钻孔编号", "岩芯箱号", "取样深度", "负责人", "切片编号", "染色方法"];
+      const sampleRows = [
+        ["", "东岭铜矿薄片", "ZK-17", "BX-09", "128.4-128.8m", "陆川", "SL-011-A", "普通薄片"],
+        ["", "东岭铜矿薄片", "ZK-17", "BX-09", "128.4-128.8m", "陆川", "SL-011-B", "茜素红染色"],
+        ["", "西山金矿勘探", "ZK-05", "BX-12", "245.2-245.6m", "陈明", "SL-012-A", "光片"],
+        ["CORE-001", "东岭铜矿薄片", "ZK-17", "BX-09", "128.4-128.8m", "陆川", "SL-001-C", "普通薄片"]
+      ];
+      const escapeCSV = (val) => {
+        const str = String(val || "");
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      };
+      const csvContent = [
+        headers.join(","),
+        ...sampleRows.map(row => row.map(escapeCSV).join(","))
+      ].join("\n");
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": "attachment; filename*=UTF-8''" + encodeURIComponent("岩芯样本导入模板.csv")
+      });
+      res.end("\uFEFF" + csvContent);
+      return;
     }
 
     if (req.method === "POST" && url.pathname === "/api/csv/preview") {
