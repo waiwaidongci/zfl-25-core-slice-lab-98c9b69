@@ -4360,23 +4360,27 @@ const server = http.createServer(async (req, res) => {
       if (sampleIdx >= 0) db.samples[sampleIdx] = restoredSample;
       const removedDeliveries = [];
       const restoredDeliveries = [];
-      if (wasDelivered && !willBeDelivered) {
-        const toRemove = db.deliveries.filter(d => d.sampleId === sampleId);
-        removedDeliveries.push(...toRemove.map(d => d.id));
-        db.deliveries = db.deliveries.filter(d => d.sampleId !== sampleId);
-      }
       if (willBeDelivered) {
+        const targetTime = new Date(auditEntry.timestamp || 0).getTime();
         const deliverySnapshots = db.auditLog
-          .filter(e => e.sampleId === sampleId && e.action === "delivery:confirm" && e.deliverySnapshot)
+          .filter(e => {
+            if (e.sampleId !== sampleId || e.action !== "delivery:confirm" || !e.deliverySnapshot) return false;
+            const entryTime = new Date(e.timestamp || 0).getTime();
+            return Number.isFinite(targetTime) && Number.isFinite(entryTime) && entryTime <= targetTime;
+          })
           .map(e => e.deliverySnapshot);
+        const targetDeliveryIds = new Set(deliverySnapshots.map(d => d.id));
+        const currentDeliveries = db.deliveries.filter(d => d.sampleId === sampleId);
+        removedDeliveries.push(...currentDeliveries.filter(d => !targetDeliveryIds.has(d.id)).map(d => d.id));
+        db.deliveries = db.deliveries.filter(d => d.sampleId !== sampleId || targetDeliveryIds.has(d.id));
         const currentDeliveryIds = new Set(db.deliveries.filter(d => d.sampleId === sampleId).map(d => d.id));
-        for (const ds of deliverySnapshots) {
+        deliverySnapshots.slice().reverse().forEach(ds => {
           if (!currentDeliveryIds.has(ds.id)) {
             db.deliveries.unshift(JSON.parse(JSON.stringify(ds)));
             restoredDeliveries.push(ds.id);
             currentDeliveryIds.add(ds.id);
           }
-        }
+        });
         if (!wasDelivered && willBeDelivered && !restoredDeliveries.length) {
           const latestConfirm = db.auditLog.find(e => e.sampleId === sampleId && e.action === "delivery:confirm" && e.deliverySnapshot);
           if (latestConfirm) {
@@ -4384,6 +4388,10 @@ const server = http.createServer(async (req, res) => {
             restoredDeliveries.push(latestConfirm.deliverySnapshot.id);
           }
         }
+      } else if (wasDelivered) {
+        const toRemove = db.deliveries.filter(d => d.sampleId === sampleId);
+        removedDeliveries.push(...toRemove.map(d => d.id));
+        db.deliveries = db.deliveries.filter(d => d.sampleId !== sampleId);
       }
       const rollbackNoteParts = [`回滚到审计记录 ${auditId}（${auditEntry.actionLabel || auditEntry.action}，${auditEntry.timestamp}）`];
       if (removedDeliveries.length) rollbackNoteParts.push(`已删除交付记录：${removedDeliveries.join("、")}`);
