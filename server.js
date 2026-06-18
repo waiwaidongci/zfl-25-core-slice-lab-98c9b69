@@ -11,7 +11,16 @@ const statuses = ["待切割", "制片中", "待观察", "已交付"];
 const taskSteps = ["取样", "切割", "研磨", "染色", "观察"];
 const SLICE_ID_PATTERN = /^SL-\d+-[A-Za-z]+$/;
 
+const defaultMethods = [
+  { id: "M-001", name: "普通薄片", description: "标准岩矿薄片制片，厚度0.03mm", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 1 },
+  { id: "M-002", name: "茜素红染色", description: "碳酸盐矿物染色，区分方解石/白云石", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 2 },
+  { id: "M-003", name: "光片", description: "不透明矿物光片制片，用于反光显微镜观察", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 3 },
+  { id: "M-004", name: "油浸薄片", description: "油浸法制备薄片，用于精确测定矿物折射率", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 4 },
+  { id: "M-005", name: "电子探针片", description: "电子探针显微分析用样品片", enabled: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 5 }
+];
+
 const seed = {
+  methods: defaultMethods,
   deliveries: [
     {
       id: "DLV-001",
@@ -198,6 +207,10 @@ async function loadDb() {
     db.deliveries = [];
     needSave = true;
   }
+  if (!Array.isArray(db.methods)) {
+    db.methods = JSON.parse(JSON.stringify(defaultMethods));
+    needSave = true;
+  }
   db.samples.forEach(sample => {
     sample.slices.forEach(slice => {
       if (!Array.isArray(slice.observations)) {
@@ -205,6 +218,36 @@ async function loadDb() {
         needSave = true;
       }
     });
+  });
+  const existingMethodNames = new Set(db.methods.map(m => m.name));
+  const usedMethodNames = new Set();
+  db.samples.forEach(sample => {
+    sample.slices.forEach(slice => {
+      if (slice.method && typeof slice.method === "string" && slice.method.trim()) {
+        usedMethodNames.add(slice.method.trim());
+      }
+    });
+  });
+  db.deliveries.forEach(delivery => {
+    delivery.slices.forEach(s => {
+      if (s.method && typeof s.method === "string" && s.method.trim()) {
+        usedMethodNames.add(s.method.trim());
+      }
+    });
+  });
+  let nextSort = db.methods.length > 0 ? Math.max(...db.methods.map(m => m.sortOrder || 0)) + 1 : 1;
+  usedMethodNames.forEach(name => {
+    if (!existingMethodNames.has(name)) {
+      db.methods.push({
+        id: "M-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+        name: name,
+        description: "从历史数据自动导入",
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        sortOrder: nextSort++
+      });
+      needSave = true;
+    }
   });
   if (needSave) await saveDb(db);
   return db;
@@ -668,6 +711,26 @@ const page = `<!doctype html>
     .stats-inner-table th { color:var(--stone); font-weight:600; background:#f0f4ec; }
     .stats-inner-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
     .stats-step-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; vertical-align:middle; }
+    .method-config-btn { background:var(--stone); padding:8px 14px; }
+    .method-modal { width: 680px; }
+    .method-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .method-item { background: #fafcf7; border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+    .method-item.disabled { background: #f5f5f4; opacity: 0.7; }
+    .method-item-main { display: flex; flex-direction: column; gap: 4px; }
+    .method-name-row { display: flex; align-items: center; gap: 8px; }
+    .method-name { font-weight: 700; font-size: 15px; }
+    .method-desc { color: var(--muted); font-size: 13px; }
+    .method-meta { font-size: 12px; color: var(--stone); margin-top: 4px; }
+    .method-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .method-actions button { padding: 6px 10px; font-size: 12px; }
+    .method-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .method-badge.enabled { background: #edf5e8; color: var(--accent); }
+    .method-badge.disabled { background: #eef1ea; color: var(--muted); }
+    .method-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .method-form-grid .full { grid-column: 1 / -1; }
+    .slice-method-select-wrap { position: relative; }
+    .slice-method-select-wrap select { padding-right: 40px; }
+    .slice-method-custom-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--stone); cursor: pointer; padding: 4px 8px; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -683,6 +746,7 @@ const page = `<!doctype html>
         <button type="button" class="view-tab" data-view="deliveries">历史交付包</button>
         <button type="button" class="view-tab" data-view="stats">制片耗时统计</button>
       </div>
+      <button id="method-config-btn" class="method-config-btn">⚙ 工艺配置</button>
       <button id="reload">刷新</button>
     </div>
   </header>
@@ -879,6 +943,8 @@ const page = `<!doctype html>
     const viewSamplesArea = document.querySelector("#view-samples-area");
     let samples = [];
     let deliveries = [];
+    let methodDict = [];
+    let methodDictLoaded = false;
     let workbenchError = null;
     let activeView = "cards";
     const filterFields = ["project", "borehole", "corebox", "owner", "status", "delivery"];
@@ -887,7 +953,58 @@ const page = `<!doctype html>
     function createSliceRow(initialId = "", initialMethod = "") {
       const row = document.createElement("div");
       row.className = "slice-row";
-      row.innerHTML = '<input placeholder="切片编号，如 SL-001-A" value="' + initialId + '" data-slice-id><input placeholder="染色方法，如 普通薄片" value="' + initialMethod + '" data-slice-method><button type="button" class="secondary row-btn" data-remove-row title="删除此行">×</button>';
+      const activeMethods = methodDict.filter(m => m.enabled);
+      const methodInDict = activeMethods.some(m => m.name === initialMethod);
+      const useCustom = initialMethod !== "" && !methodInDict;
+      const selectOptions = '<option value="">-- 选择染色方法 --</option>' +
+        activeMethods.map(m => '<option value="' + m.name + '"' + (m.name === initialMethod && !useCustom ? ' selected' : '') + '>' + m.name + '</option>').join("") +
+        '<option value="__custom__"' + (useCustom ? ' selected' : '') + '>✏ 自定义输入...</option>';
+      row.innerHTML = '<input placeholder="切片编号，如 SL-001-A" value="' + initialId + '" data-slice-id>' +
+        '<div class="slice-method-select-wrap" data-method-wrap>' +
+          (useCustom
+            ? '<input placeholder="自定义染色方法" value="' + initialMethod + '" data-slice-method>'
+            : '<select data-slice-method>' + selectOptions + '</select>') +
+          '<button type="button" class="slice-method-custom-toggle" data-toggle-method title="切换自定义/选择">↔</button>' +
+        '</div>' +
+        '<button type="button" class="secondary row-btn" data-remove-row title="删除此行">×</button>';
+      const methodWrap = row.querySelector("[data-method-wrap]");
+      const toggleBtn = row.querySelector("[data-toggle-method]");
+      function rebuildMethodWidget(currentValue, forceCustom) {
+        const shouldUseCustom = forceCustom || (currentValue === "__custom__");
+        const newOptions = '<option value="">-- 选择染色方法 --</option>' +
+          methodDict.filter(m => m.enabled).map(m => '<option value="' + m.name + '"' + (m.name === currentValue && !shouldUseCustom ? ' selected' : '') + '>' + m.name + '</option>').join("") +
+          '<option value="__custom__"' + (shouldUseCustom ? ' selected' : '') + '>✏ 自定义输入...</option>';
+        methodWrap.innerHTML = shouldUseCustom
+          ? '<input placeholder="自定义染色方法" value="' + (shouldUseCustom && currentValue !== "__custom__" ? currentValue : "") + '" data-slice-method>' +
+            '<button type="button" class="slice-method-custom-toggle" data-toggle-method title="切换回工艺选择">↔</button>'
+          : '<select data-slice-method>' + newOptions + '</select>' +
+            '<button type="button" class="slice-method-custom-toggle" data-toggle-method title="切换自定义/选择">↔</button>';
+        bindMethodWidgetEvents();
+      }
+      function bindMethodWidgetEvents() {
+        const sel = methodWrap.querySelector("select[data-slice-method]");
+        const inp = methodWrap.querySelector("input[data-slice-method]");
+        const toggle = methodWrap.querySelector("[data-toggle-method]");
+        if (sel) {
+          sel.onchange = () => {
+            if (sel.value === "__custom__") {
+              rebuildMethodWidget("", true);
+            }
+          };
+        }
+        if (toggle) {
+          toggle.onclick = () => {
+            const currSel = methodWrap.querySelector("select[data-slice-method]");
+            const currInp = methodWrap.querySelector("input[data-slice-method]");
+            if (currSel) {
+              rebuildMethodWidget("", true);
+            } else if (currInp) {
+              rebuildMethodWidget(currInp.value, false);
+            }
+          };
+        }
+      }
+      bindMethodWidgetEvents();
       row.querySelector("[data-remove-row]").onclick = () => {
         if (row.parentElement && row.parentElement.children.length > 1) row.remove();
       };
@@ -1563,6 +1680,235 @@ const page = `<!doctype html>
       }).join("");
     }
 
+    async function loadMethodDict() {
+      try {
+        methodDict = await api("/api/methods");
+        methodDictLoaded = true;
+      } catch (err) {
+        methodDict = [];
+        methodDictLoaded = false;
+        console.error("Failed to load method dict:", err);
+      }
+    }
+
+    function openMethodConfigModal() {
+      const mask = document.createElement("div");
+      mask.className = "modal-mask";
+      const modal = document.createElement("div");
+      modal.className = "modal method-modal";
+      renderMethodConfigContent(modal, mask);
+      mask.appendChild(modal);
+      modalRoot.appendChild(mask);
+      mask.onclick = e => { if (e.target === mask) mask.remove(); };
+    }
+
+    async function renderMethodConfigContent(modal, mask) {
+      modal.innerHTML = '<h2>染色方法 / 制片工艺配置</h2><div style="margin-top:10px;text-align:center;color:var(--muted);padding:20px;">加载中...</div>';
+      try {
+        const methods = await api("/api/methods");
+        const enabledCount = methods.filter(m => m.enabled).length;
+        const totalUsage = methods.reduce((s, m) => s + (m.usageCount || 0), 0);
+        const listHtml = methods.length
+          ? '<div class="method-list">' + methods.map(m => {
+              const badgeClass = m.enabled ? "enabled" : "disabled";
+              const badgeText = m.enabled ? "启用中" : "已禁用";
+              const itemClass = m.enabled ? "" : "disabled";
+              return '<div class="method-item ' + itemClass + '" data-method-id="' + m.id + '">' +
+                '<div class="method-item-main">' +
+                  '<div class="method-name-row">' +
+                    '<span class="method-name">' + m.name + '</span>' +
+                    '<span class="method-badge ' + badgeClass + '">' + badgeText + '</span>' +
+                  '</div>' +
+                  (m.description ? '<div class="method-desc">' + m.description + '</div>' : '') +
+                  '<div class="method-meta">' +
+                    '使用次数：<b>' + (m.usageCount || 0) + '</b> 次' +
+                    (m.createdAt ? ' · 创建于 ' + formatObsDate(m.createdAt) : '') +
+                    ' · 排序优先级：' + (m.sortOrder || 0) +
+                  '</div>' +
+                '</div>' +
+                '<div class="method-actions">' +
+                  '<button type="button" class="secondary" data-method-edit="' + m.id + '">编辑</button>' +
+                  '<button type="button" data-method-toggle="' + m.id + '">' + (m.enabled ? '禁用' : '启用') + '</button>' +
+                '</div>' +
+              '</div>';
+            }).join("") + '</div>'
+          : '<div class="empty" style="margin-top:12px;">还没有配置任何工艺</div>';
+
+        modal.innerHTML =
+          '<h2>染色方法 / 制片工艺配置</h2>' +
+          '<div class="meta" style="margin-bottom:4px;">统一维护制片工艺字典，新增切片时优先从字典中选择</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px;">' +
+            '<div class="csv-stat valid"><strong>' + enabledCount + '</strong><span>启用中工艺</span></div>' +
+            '<div class="csv-stat"><strong>' + (methods.length - enabledCount) + '</strong><span>已禁用工艺</span></div>' +
+            '<div class="csv-stat"><strong>' + totalUsage + '</strong><span>累计使用次数</span></div>' +
+          '</div>' +
+          listHtml +
+          '<div id="method-alert" style="margin-top:12px;"></div>' +
+          '<div class="modal-footer">' +
+            '<button type="button" class="secondary" id="method-close-btn">关闭</button>' +
+            '<button type="button" id="method-add-btn">+ 新增工艺</button>' +
+          '</div>';
+
+        modal.querySelector("#method-close-btn").onclick = () => {
+          mask.remove();
+          refreshSliceRowMethods();
+        };
+        modal.querySelector("#method-add-btn").onclick = () => {
+          openMethodFormModal(modal, mask, null);
+        };
+        modal.querySelectorAll("[data-method-edit]").forEach(btn => {
+          btn.onclick = () => {
+            const id = btn.dataset.methodEdit;
+            const method = methods.find(m => m.id === id);
+            if (method) openMethodFormModal(modal, mask, method);
+          };
+        });
+        modal.querySelectorAll("[data-method-toggle]").forEach(btn => {
+          btn.onclick = async () => {
+            const id = btn.dataset.methodToggle;
+            try {
+              const method = methods.find(m => m.id === id);
+              if (!method) return;
+              const action = method.enabled ? "禁用" : "启用";
+              const usage = method.usageCount || 0;
+              if (method.enabled && usage > 0) {
+                if (!confirm('确认要禁用工艺「' + method.name + '」吗？\\n该工艺已被使用 ' + usage + ' 次，禁用后不会影响历史切片记录，但在新增切片时将不再显示此选项。')) {
+                  return;
+                }
+              }
+              await api("/api/methods/" + id + "/toggle", { method: "PATCH" });
+              await loadMethodDict();
+              renderMethodConfigContent(modal, mask);
+            } catch (err) {
+              const alertEl = modal.querySelector("#method-alert");
+              showAlert(alertEl, [err.message || "操作失败"]);
+            }
+          };
+        });
+      } catch (err) {
+        modal.innerHTML = '<h2>染色方法 / 制片工艺配置</h2><div class="alert" style="margin-top:16px;">加载失败：' + (err.message || '未知错误') + '</div><div class="modal-footer"><button type="button" class="secondary" id="dlg-cancel">关闭</button></div>';
+        modal.querySelector("#dlg-cancel").onclick = () => mask.remove();
+      }
+    }
+
+    function openMethodFormModal(parentModal, mask, editingMethod) {
+      const isEdit = editingMethod !== null;
+      const formMask = document.createElement("div");
+      formMask.className = "modal-mask";
+      const formModal = document.createElement("div");
+      formModal.className = "modal";
+      const title = isEdit ? "编辑工艺" : "新增工艺";
+      const oldName = isEdit ? editingMethod.name : "";
+      const hasUsage = isEdit && (editingMethod.usageCount || 0) > 0;
+      formModal.innerHTML =
+        '<h2>' + title + '</h2>' +
+        '<div class="method-form-grid" style="margin-top:12px;">' +
+          '<div class="full">' +
+            '<label>工艺名称 *</label>' +
+            '<input id="mf-name" placeholder="如：普通薄片、茜素红染色" value="' + (isEdit ? editingMethod.name : "") + '">' +
+          '</div>' +
+          '<div class="full">' +
+            '<label>工艺说明</label>' +
+            '<textarea id="mf-desc" placeholder="简要描述该工艺的用途和特点">' + (isEdit ? (editingMethod.description || "") : "") + '</textarea>' +
+          '</div>' +
+          '<div>' +
+            '<label>排序优先级（数字越小越靠前）</label>' +
+            '<input id="mf-sort" type="number" value="' + (isEdit ? (editingMethod.sortOrder || 0) : 0) + '">' +
+          '</div>' +
+        '</div>' +
+        (isEdit && hasUsage ?
+          '<div style="margin-top:12px;">' +
+            '<label style="display:flex;align-items:center;gap:6px;">' +
+              '<input type="checkbox" id="mf-update-existing">' +
+              '<span>同时更新历史切片中的工艺名称（共 ' + editingMethod.usageCount + ' 条记录）</span>' +
+            '</label>' +
+            '<div class="meta" style="font-size:12px;margin-top:4px;color:var(--stone);">不勾选则仅修改字典，历史切片仍显示原名称</div>' +
+          '</div>' : '') +
+        (isEdit ?
+          '<div style="margin-top:12px;"><div class="method-badge ' + (editingMethod.enabled ? 'enabled' : 'disabled') + '">' +
+            (editingMethod.enabled ? '● 当前状态：启用中' : '○ 当前状态：已禁用') +
+          '</div></div>' : '') +
+        '<div id="mf-alert" style="margin-top:12px;"></div>' +
+        '<div class="modal-footer">' +
+          '<button type="button" class="secondary" id="mf-cancel">取消</button>' +
+          '<button type="button" id="mf-save">' + (isEdit ? '保存修改' : '新增工艺') + '</button>' +
+        '</div>';
+      formMask.appendChild(formModal);
+      modalRoot.appendChild(formMask);
+      formMask.onclick = e => { if (e.target === formMask) formMask.remove(); };
+      formModal.querySelector("#mf-cancel").onclick = () => formMask.remove();
+      formModal.querySelector("#mf-save").onclick = async () => {
+        const name = formModal.querySelector("#mf-name").value.trim();
+        const description = formModal.querySelector("#mf-desc").value.trim();
+        const sortOrder = Number(formModal.querySelector("#mf-sort").value) || 0;
+        const alertEl = formModal.querySelector("#mf-alert");
+        if (!name) {
+          showAlert(alertEl, ["请填写工艺名称"]);
+          return;
+        }
+        try {
+          if (isEdit) {
+            const updateExisting = hasUsage ? !!formModal.querySelector("#mf-update-existing").checked : false;
+            if (name !== oldName && updateExisting) {
+              if (!confirm('确认要将所有使用「' + oldName + '」的切片记录更新为「' + name + '」吗？\\n此操作将修改 ' + editingMethod.usageCount + ' 条历史记录。')) {
+                return;
+              }
+            }
+            await api("/api/methods/" + editingMethod.id, {
+              method: "PUT",
+              body: JSON.stringify({ name, description, sortOrder, updateExisting })
+            });
+          } else {
+            await api("/api/methods", {
+              method: "POST",
+              body: JSON.stringify({ name, description, sortOrder })
+            });
+          }
+          await loadMethodDict();
+          formMask.remove();
+          renderMethodConfigContent(parentModal, mask);
+        } catch (err) {
+          const msg = err.message;
+          try {
+            const parsed = JSON.parse(msg);
+            if (Array.isArray(parsed)) {
+              showAlert(alertEl, parsed);
+              return;
+            }
+          } catch (_) {}
+          showAlert(alertEl, [msg]);
+        }
+      };
+    }
+
+    function refreshSliceRowMethods() {
+      if (!createSliceRowsEl) return;
+      const rows = createSliceRowsEl.querySelectorAll(".slice-row");
+      const preserved = [];
+      rows.forEach(row => {
+        const idEl = row.querySelector("[data-slice-id]");
+        const methodEl = row.querySelector("[data-slice-method]");
+        preserved.push({
+          id: idEl ? idEl.value : "",
+          method: methodEl ? methodEl.value : ""
+        });
+      });
+      initCreateSliceRows();
+      preserved.forEach((p, idx) => {
+        let targetRow;
+        if (idx === 0) {
+          targetRow = createSliceRowsEl.querySelector(".slice-row");
+        } else {
+          targetRow = createSliceRow(p.id, p.method);
+          createSliceRowsEl.appendChild(targetRow);
+        }
+        if (targetRow) {
+          const idEl = targetRow.querySelector("[data-slice-id]");
+          if (idEl) idEl.value = p.id;
+        }
+      });
+    }
+
     let statsData = null;
     const statsFilterFields = ["project", "owner"];
 
@@ -1751,6 +2097,10 @@ const page = `<!doctype html>
           api("/api/samples"),
           api("/api/deliveries")
         ]);
+        await loadMethodDict();
+        if (!createSliceRowsEl.querySelectorAll(".slice-row").length) {
+          initCreateSliceRows();
+        }
       } catch (err) {
         samples = [];
         deliveries = [];
@@ -2049,6 +2399,10 @@ const page = `<!doctype html>
     document.querySelector("#add-create-slice").onclick = () => {
       createSliceRowsEl.appendChild(createSliceRow());
     };
+    const methodConfigBtn = document.querySelector("#method-config-btn");
+    if (methodConfigBtn) {
+      methodConfigBtn.onclick = openMethodConfigModal;
+    }
     form.onsubmit = async event => {
       event.preventDefault();
       const fd = new FormData(form);
@@ -2078,7 +2432,6 @@ const page = `<!doctype html>
         showAlert(createAlertEl, [msg]);
       }
     };
-    initCreateSliceRows();
     load();
   </script>
 </body>
@@ -2860,6 +3213,127 @@ const server = http.createServer(async (req, res) => {
         projects,
         owners
       });
+    }
+
+    function sortMethods(methods) {
+      return [...methods].sort((a, b) => {
+        const sa = a.sortOrder || 0;
+        const sb = b.sortOrder || 0;
+        if (sa !== sb) return sa - sb;
+        return (a.name || "").localeCompare(b.name || "", "zh");
+      });
+    }
+
+    function countMethodUsage(db, methodName) {
+      let count = 0;
+      db.samples.forEach(sample => {
+        sample.slices.forEach(slice => {
+          if (slice.method && slice.method.trim() === methodName) count++;
+        });
+      });
+      db.deliveries.forEach(delivery => {
+        delivery.slices.forEach(s => {
+          if (s.method && s.method.trim() === methodName) count++;
+        });
+      });
+      return count;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/methods") {
+      const sorted = sortMethods(db.methods);
+      const withUsage = sorted.map(m => ({
+        ...m,
+        usageCount: countMethodUsage(db, m.name)
+      }));
+      return sendJson(res, 200, withUsage);
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/methods/active") {
+      const active = db.methods.filter(m => m.enabled);
+      return sendJson(res, 200, sortMethods(active));
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/methods") {
+      const input = await body(req);
+      const name = (input.name || "").trim();
+      const description = (input.description || "").trim();
+      if (!name) {
+        return sendJson(res, 400, { error: "工艺名称不能为空" });
+      }
+      const duplicate = db.methods.find(m => m.name === name);
+      if (duplicate) {
+        return sendJson(res, 400, { error: "工艺名称已存在" });
+      }
+      const maxSort = db.methods.length > 0 ? Math.max(...db.methods.map(m => m.sortOrder || 0)) : 0;
+      const method = {
+        id: "M-" + Date.now(),
+        name,
+        description,
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        sortOrder: maxSort + 1
+      };
+      db.methods.push(method);
+      await saveDb(db);
+      return sendJson(res, 201, { ...method, usageCount: 0 });
+    }
+
+    const methodMatch = url.pathname.match(/^\/api\/methods\/([^/]+)$/);
+    if (methodMatch && req.method === "PUT") {
+      const methodId = methodMatch[1];
+      const method = db.methods.find(m => m.id === methodId);
+      if (!method) {
+        return sendJson(res, 404, { error: "method_not_found" });
+      }
+      const input = await body(req);
+      const name = (input.name || "").trim();
+      const description = (input.description !== undefined ? (input.description || "").trim() : method.description);
+      if (!name) {
+        return sendJson(res, 400, { error: "工艺名称不能为空" });
+      }
+      const duplicate = db.methods.find(m => m.id !== methodId && m.name === name);
+      if (duplicate) {
+        return sendJson(res, 400, { error: "工艺名称已存在" });
+      }
+      const oldName = method.name;
+      method.name = name;
+      method.description = description;
+      if (input.sortOrder !== undefined) {
+        method.sortOrder = Number(input.sortOrder) || method.sortOrder;
+      }
+      if (oldName !== name) {
+        const updateInSamples = input.updateExisting === true;
+        if (updateInSamples) {
+          db.samples.forEach(sample => {
+            sample.slices.forEach(slice => {
+              if (slice.method && slice.method.trim() === oldName) {
+                slice.method = name;
+              }
+            });
+          });
+          db.deliveries.forEach(delivery => {
+            delivery.slices.forEach(s => {
+              if (s.method && s.method.trim() === oldName) {
+                s.method = name;
+              }
+            });
+          });
+        }
+      }
+      await saveDb(db);
+      return sendJson(res, 200, { ...method, usageCount: countMethodUsage(db, method.name) });
+    }
+
+    const methodToggleMatch = url.pathname.match(/^\/api\/methods\/([^/]+)\/toggle$/);
+    if (methodToggleMatch && req.method === "PATCH") {
+      const methodId = methodToggleMatch[1];
+      const method = db.methods.find(m => m.id === methodId);
+      if (!method) {
+        return sendJson(res, 404, { error: "method_not_found" });
+      }
+      method.enabled = !method.enabled;
+      await saveDb(db);
+      return sendJson(res, 200, { ...method, usageCount: countMethodUsage(db, method.name) });
     }
 
     sendJson(res, 404, { error: "not_found" });
