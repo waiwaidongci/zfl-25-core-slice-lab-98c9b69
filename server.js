@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = join(__dirname, "data", "core-slices.json");
 const port = Number(process.env.PORT || 3025);
-const statuses = ["待切割", "制片中", "待观察", "部分交付", "已交付"];
+const statuses = ["待切割", "制片中", "待观察", "已交付"];
+const deliveryStatuses = ["未交付", "部分交付", "已交付"];
 const taskSteps = ["取样", "切割", "研磨", "染色", "观察"];
 const SLICE_ID_PATTERN = /^SL-\d+-[A-Za-z]+$/;
 
@@ -478,32 +479,30 @@ function getDeliveredSliceIds(db, sampleId) {
 }
 
 function updateSampleStatus(sample, db) {
-  const sliceStatuses = sample.slices.map(slice => slice.status);
   const deliveredSliceIds = db ? getDeliveredSliceIds(db, sample.id) : new Set();
   const totalSlices = sample.slices.length;
   const deliveredSlices = sample.slices.filter(s => deliveredSliceIds.has(s.id)).length;
+  const undeliveredSlices = sample.slices.filter(s => !deliveredSliceIds.has(s.id));
+  const undeliveredStatuses = undeliveredSlices.map(s => s.status);
 
-  if (sample.delivery === "已交付" || (deliveredSlices > 0 && deliveredSlices === totalSlices)) {
-    sample.status = "已交付";
+  if (deliveredSlices > 0 && deliveredSlices === totalSlices) {
     sample.delivery = "已交付";
-  } else if (deliveredSlices > 0 && deliveredSlices < totalSlices) {
-    sample.status = "部分交付";
+  } else if (deliveredSlices > 0) {
     sample.delivery = "部分交付";
-  } else if (sliceStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) {
+  } else {
+    sample.delivery = "未交付";
+  }
+
+  if (sample.delivery === "已交付") {
+    sample.status = "已交付";
+  } else if (undeliveredSlices.length === 0) {
+    sample.status = "待切割";
+  } else if (undeliveredStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) {
     sample.status = "制片中";
-    if (sample.delivery !== "部分交付" && sample.delivery !== "已交付") {
-      sample.delivery = "未交付";
-    }
-  } else if (sliceStatuses.length && sliceStatuses.every(step => step === "观察")) {
+  } else if (undeliveredStatuses.every(step => step === "观察")) {
     sample.status = "待观察";
-    if (sample.delivery !== "部分交付" && sample.delivery !== "已交付") {
-      sample.delivery = "未交付";
-    }
   } else {
     sample.status = "待切割";
-    if (sample.delivery !== "部分交付" && sample.delivery !== "已交付") {
-      sample.delivery = "未交付";
-    }
   }
 }
 
@@ -3921,8 +3920,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: "请填写接收单位" });
       }
       
-      const totalSlices = sample.slices.length;
-      const isFullDelivery = slicesToDeliver.length === totalSlices;
+      const isFullDelivery = slicesToDeliver.length === selectableSlices.length;
       const deliveryType = isFullDelivery ? "full" : "partial";
       
       const delivery = {
