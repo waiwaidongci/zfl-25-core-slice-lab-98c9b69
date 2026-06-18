@@ -39,7 +39,9 @@ const PERMISSIONS = {
   DELIVERY_PREVIEW: "delivery:preview",
   STATS_VIEW: "stats:view",
   METHOD_MANAGE: "method:manage",
-  METHOD_VIEW: "method:view"
+  METHOD_VIEW: "method:view",
+  AUDIT_VIEW: "audit:view",
+  AUDIT_ROLLBACK: "audit:rollback"
 };
 
 const ROLE_PERMISSIONS = {
@@ -49,14 +51,18 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.SAMPLE_VIEW,
     PERMISSIONS.CSV_IMPORT,
     PERMISSIONS.STATS_VIEW,
-    PERMISSIONS.METHOD_VIEW
+    PERMISSIONS.METHOD_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_ROLLBACK
   ],
   [ROLES.PRODUCER]: [
     PERMISSIONS.SAMPLE_VIEW,
     PERMISSIONS.STEP_ADVANCE,
     PERMISSIONS.STEP_LOG,
     PERMISSIONS.STATS_VIEW,
-    PERMISSIONS.METHOD_VIEW
+    PERMISSIONS.METHOD_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_ROLLBACK
   ],
   [ROLES.OBSERVER]: [
     PERMISSIONS.SAMPLE_VIEW,
@@ -64,7 +70,9 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.OBSERVATION_VIEW,
     PERMISSIONS.STEP_LOG,
     PERMISSIONS.STATS_VIEW,
-    PERMISSIONS.METHOD_VIEW
+    PERMISSIONS.METHOD_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_ROLLBACK
   ],
   [ROLES.DELIVERER]: [
     PERMISSIONS.SAMPLE_VIEW,
@@ -73,7 +81,9 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.DELIVERY_PREVIEW,
     PERMISSIONS.OBSERVATION_VIEW,
     PERMISSIONS.STATS_VIEW,
-    PERMISSIONS.METHOD_VIEW
+    PERMISSIONS.METHOD_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_ROLLBACK
   ]
 };
 
@@ -109,6 +119,7 @@ const defaultMethods = [
 
 const seed = {
   methods: defaultMethods,
+  auditLog: [],
   deliveries: [
     {
       id: "DLV-001",
@@ -284,6 +295,54 @@ const seed = {
   ]
 };
 
+function migrateSample(sample) {
+  let changed = false;
+  if (!sample.id) { sample.id = "CORE-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4); changed = true; }
+  if (!sample.project) { sample.project = "未指定项目"; changed = true; }
+  if (!sample.borehole) { sample.borehole = "未指定"; changed = true; }
+  if (!sample.coreBox) { sample.coreBox = "未指定"; changed = true; }
+  if (!sample.depth) { sample.depth = "0-0m"; changed = true; }
+  if (!sample.owner) { sample.owner = "未指定"; changed = true; }
+  if (!sample.delivery) { sample.delivery = "未交付"; changed = true; }
+  if (!Array.isArray(sample.slices)) { sample.slices = []; changed = true; }
+  sample.slices.forEach(slice => {
+    if (!slice.id) { slice.id = "SL-" + Date.now() + "-" + Math.random().toString(36).substr(2, 2); changed = true; }
+    if (!slice.method) { slice.method = "未指定"; changed = true; }
+    if (typeof slice.observation !== "string") { slice.observation = ""; changed = true; }
+    if (!Array.isArray(slice.observations)) { slice.observations = []; changed = true; }
+    if (!slice.status) { slice.status = "取样"; changed = true; }
+    if (!Array.isArray(slice.logs)) { slice.logs = []; changed = true; }
+    slice.logs.forEach(log => {
+      if (!log.at) { log.at = new Date().toISOString(); changed = true; }
+      if (!log.step) { log.step = "取样"; changed = true; }
+    });
+  });
+  updateSampleStatus(sample);
+  return changed;
+}
+
+function migrateDelivery(delivery) {
+  let changed = false;
+  if (!delivery.id) { delivery.id = "DLV-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4); changed = true; }
+  if (!delivery.deliveredAt) { delivery.deliveredAt = new Date().toISOString(); changed = true; }
+  if (!delivery.deliveredBy) { delivery.deliveredBy = "未指定"; changed = true; }
+  if (!delivery.receivingUnit) { delivery.receivingUnit = "未指定"; changed = true; }
+  if (!delivery.remark) { delivery.remark = ""; changed = true; }
+  if (!Array.isArray(delivery.slices)) { delivery.slices = []; changed = true; }
+  if (!delivery.sampleSnapshot) { delivery.sampleSnapshot = {}; changed = true; }
+  return changed;
+}
+
+function migrateAuditEntry(entry) {
+  let changed = false;
+  if (!entry.id) { entry.id = "AUD-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4); changed = true; }
+  if (!entry.timestamp) { entry.timestamp = new Date().toISOString(); changed = true; }
+  if (!entry.operator) { entry.operator = "unknown"; changed = true; }
+  if (!entry.operatorName) { entry.operatorName = entry.operator ? (ROLE_INFO[entry.operator]?.name || entry.operator) : "未知"; changed = true; }
+  if (!entry.sourceApi) { entry.sourceApi = "unknown"; changed = true; }
+  return changed;
+}
+
 async function loadDb() {
   if (!existsSync(dbPath)) {
     await mkdir(dirname(dbPath), { recursive: true });
@@ -291,6 +350,10 @@ async function loadDb() {
   }
   const db = JSON.parse(await readFile(dbPath, "utf8"));
   let needSave = false;
+  if (!Array.isArray(db.samples)) {
+    db.samples = [];
+    needSave = true;
+  }
   if (!Array.isArray(db.deliveries)) {
     db.deliveries = [];
     needSave = true;
@@ -299,13 +362,18 @@ async function loadDb() {
     db.methods = JSON.parse(JSON.stringify(defaultMethods));
     needSave = true;
   }
+  if (!Array.isArray(db.auditLog)) {
+    db.auditLog = [];
+    needSave = true;
+  }
   db.samples.forEach(sample => {
-    sample.slices.forEach(slice => {
-      if (!Array.isArray(slice.observations)) {
-        slice.observations = [];
-        needSave = true;
-      }
-    });
+    if (migrateSample(sample)) needSave = true;
+  });
+  db.deliveries.forEach(delivery => {
+    if (migrateDelivery(delivery)) needSave = true;
+  });
+  db.auditLog.forEach(entry => {
+    if (migrateAuditEntry(entry)) needSave = true;
   });
   const existingMethodNames = new Set(db.methods.map(m => m.name));
   const usedMethodNames = new Set();
@@ -356,6 +424,107 @@ function updateSampleStatus(sample) {
   else if (sliceStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) sample.status = "制片中";
   else if (sliceStatuses.length && sliceStatuses.every(step => step === "观察")) sample.status = "待观察";
   else sample.status = "待切割";
+}
+
+function createSampleSnapshot(sample) {
+  return JSON.parse(JSON.stringify(sample));
+}
+
+function sampleSummary(sample) {
+  return {
+    id: sample.id,
+    project: sample.project,
+    borehole: sample.borehole,
+    coreBox: sample.coreBox,
+    depth: sample.depth,
+    owner: sample.owner,
+    status: sample.status,
+    delivery: sample.delivery,
+    sliceCount: sample.slices.length,
+    sliceStatuses: sample.slices.map(s => ({
+      id: s.id,
+      method: s.method,
+      status: s.status,
+      observationCount: (s.observations || []).length,
+      lastLog: s.logs && s.logs.length ? s.logs[s.logs.length - 1] : null,
+      lastObservation: s.observations && s.observations.length ? s.observations[s.observations.length - 1] : null
+    }))
+  };
+}
+
+const ACTION_LABELS = {
+  "sample:create": "创建样本",
+  "slice:append": "追加切片",
+  "slice:batch": "批量追加切片",
+  "step:advance": "推进步骤",
+  "observation:create": "填写观察结果",
+  "delivery:confirm": "确认交付",
+  "csv:import": "CSV导入",
+  "sample:rollback": "回滚样本"
+};
+
+function describeDiff(beforeSample, afterSample, action) {
+  const parts = [];
+  if (!beforeSample && afterSample) {
+    parts.push(`新建样本 ${afterSample.id}（${afterSample.project}），含 ${afterSample.slices.length} 个切片`);
+    return parts.join("；");
+  }
+  if (!beforeSample || !afterSample) return "";
+  if (action === "sample:rollback") {
+    parts.push(`样本状态从「${beforeSample.status}」回滚至「${afterSample.status}」`);
+    parts.push(`交付状态从「${beforeSample.delivery}」变为「${afterSample.delivery}」`);
+  }
+  if (beforeSample.status !== afterSample.status) {
+    parts.push(`状态：${beforeSample.status} → ${afterSample.status}`);
+  }
+  if (beforeSample.delivery !== afterSample.delivery) {
+    parts.push(`交付：${beforeSample.delivery} → ${afterSample.delivery}`);
+  }
+  if (beforeSample.slices.length !== afterSample.slices.length) {
+    parts.push(`切片数量：${beforeSample.slices.length} → ${afterSample.slices.length}`);
+  }
+  const beforeSliceMap = {};
+  beforeSample.slices.forEach(s => { beforeSliceMap[s.id] = s; });
+  afterSample.slices.forEach(s => {
+    const before = beforeSliceMap[s.id];
+    if (!before) {
+      parts.push(`新增切片 ${s.id}（${s.method}）`);
+    } else {
+      if (before.status !== s.status) {
+        parts.push(`切片 ${s.id}：${before.status} → ${s.status}`);
+      }
+      const beforeObsCount = (before.observations || []).length;
+      const afterObsCount = (s.observations || []).length;
+      if (beforeObsCount !== afterObsCount) {
+        parts.push(`切片 ${s.id} 观察记录：${beforeObsCount} → ${afterObsCount} 条`);
+      }
+      const beforeLogCount = (before.logs || []).length;
+      const afterLogCount = (s.logs || []).length;
+      if (beforeLogCount !== afterLogCount) {
+        parts.push(`切片 ${s.id} 步骤日志：${beforeLogCount} → ${afterLogCount} 条`);
+      }
+    }
+  });
+  return parts.join("；");
+}
+
+function recordAudit(db, { sampleId, action, operator, sourceApi, beforeSample, afterSample, note }) {
+  const entry = {
+    id: `AUD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    sampleId,
+    action,
+    actionLabel: ACTION_LABELS[action] || action,
+    operator: operator || "unknown",
+    operatorName: operator ? (ROLE_INFO[operator]?.name || operator) : "未知",
+    timestamp: new Date().toISOString(),
+    sourceApi,
+    note: note || describeDiff(beforeSample, afterSample, action),
+    beforeSummary: beforeSample ? sampleSummary(beforeSample) : null,
+    afterSummary: afterSample ? sampleSummary(afterSample) : null,
+    snapshot: afterSample ? createSampleSnapshot(afterSample) : null
+  };
+  db.auditLog.unshift(entry);
+  return entry;
 }
 
 function validateSliceId(id, existingIds = []) {
@@ -830,6 +999,42 @@ const page = `<!doctype html>
     .role-required-warn { padding: 40px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; }
     .role-required-warn h3 { color: var(--danger); margin: 0 0 8px; }
     .no-perm-hint { font-size: 12px; color: var(--muted); font-style: italic; padding: 20px; text-align: center; background: #fafafa; border-radius: 6px; }
+    .audit-timeline { position: relative; padding-left: 28px; }
+    .audit-timeline::before { content: ''; position: absolute; left: 10px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+    .audit-item { position: relative; padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; }
+    .audit-item::before { content: ''; position: absolute; left: -23px; top: 16px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 0 2px var(--line); }
+    .audit-item.rollback::before { background: var(--danger); }
+    .audit-item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .audit-item-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .audit-item-action { background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .audit-item.rollback .audit-item-action { background: var(--danger); }
+    .audit-item-time { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .audit-item-meta { display: flex; gap: 16px; font-size: 12px; color: var(--stone); margin-bottom: 8px; flex-wrap: wrap; }
+    .audit-item-meta span b { color: var(--ink); }
+    .audit-item-note { font-size: 13px; color: var(--ink); background: #f5f8f0; padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; }
+    .audit-item-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; }
+    .audit-summary-block { background: #fafcf7; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+    .audit-summary-block h4 { margin: 0 0 6px; font-size: 12px; color: var(--stone); }
+    .audit-summary-block .status-pill { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #e7ece1; font-size: 11px; margin-right: 4px; }
+    .audit-item-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+    .audit-item-actions button { padding: 6px 12px; font-size: 12px; }
+    .audit-filter-panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+    .audit-filter-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .audit-filter-row label { margin: 0 0 4px; font-size: 13px; color: var(--muted); display: block; }
+    .audit-filter-actions { display: flex; gap: 8px; align-items: flex-end; justify-content: flex-end; margin-top: 12px; }
+    .audit-filter-actions button { padding: 8px 14px; }
+    .audit-empty { padding: 60px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; }
+    .audit-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    .audit-stat { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; text-align: center; }
+    .audit-stat strong { display: block; font-size: 24px; color: var(--accent); }
+    .audit-stat span { font-size: 12px; color: var(--muted); }
+    .rollback-confirm-info { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 6px; padding: 12px; margin: 12px 0; }
+    .rollback-confirm-info h4 { margin: 0 0 8px; color: var(--danger); font-size: 14px; }
+    .rollback-confirm-info ul { margin: 6px 0 0; padding-left: 20px; font-size: 13px; }
+    .rollback-confirm-info li { margin: 3px 0; }
+    .slices-summary-list { font-size: 12px; color: var(--stone); }
+    .slices-summary-list div { padding: 2px 0; }
+    .view-audit { padding-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -850,6 +1055,7 @@ const page = `<!doctype html>
         <button type="button" class="view-tab" data-view="workbench">实验室工作台</button>
         <button type="button" class="view-tab" data-view="deliveries">历史交付包</button>
         <button type="button" class="view-tab" data-view="stats">制片耗时统计</button>
+        <button type="button" class="view-tab" data-view="audit">变更审计</button>
       </div>
       <button id="method-config-btn" class="method-config-btn">⚙ 工艺配置</button>
       <button id="reload">刷新</button>
@@ -1054,6 +1260,31 @@ const page = `<!doctype html>
           <div id="stats-owner-backlog"></div>
         </div>
       </div>
+      <div id="view-audit" class="view-content view-audit">
+        <div class="audit-filter-panel">
+          <h2>审计记录筛选</h2>
+          <div class="audit-filter-row">
+            <div>
+              <label>样本编号</label>
+              <select id="audit-filter-sample"><option value="">全部样本</option></select>
+            </div>
+            <div>
+              <label>操作类型</label>
+              <select id="audit-filter-action"><option value="">全部操作</option></select>
+            </div>
+            <div>
+              <label>操作者</label>
+              <select id="audit-filter-operator"><option value="">全部操作者</option></select>
+            </div>
+          </div>
+          <div class="audit-filter-actions">
+            <button type="button" class="secondary" id="clear-audit-filters">清除筛选</button>
+          </div>
+        </div>
+        <div class="audit-stats" id="audit-stats"></div>
+        <div class="result-count" id="audit-count"></div>
+        <div class="audit-timeline" id="audit-timeline"></div>
+      </div>
     </section>
   </main>
   <div id="modal-root"></div>
@@ -1156,7 +1387,9 @@ const page = `<!doctype html>
           "delivery:preview": "交付预览",
           "stats:view": "查看统计",
           "method:manage": "工艺管理",
-          "method:view": "查看工艺"
+          "method:view": "查看工艺",
+          "audit:view": "查看审计",
+          "audit:rollback": "回滚数据"
         };
         const permLabels = rolePerms.map(p => permNames[p] || p).join("、");
         roleInfoContainer.innerHTML = '<div class="role-info-tip">' +
@@ -1179,6 +1412,8 @@ const page = `<!doctype html>
       const canDeliveryView = roleHasPerm(PERMISSIONS.DELIVERY_VIEW);
       const canStatsView = roleHasPerm(PERMISSIONS.STATS_VIEW);
       const canMethodManage = roleHasPerm(PERMISSIONS.METHOD_MANAGE);
+      const canAuditView = roleHasPerm(PERMISSIONS.AUDIT_VIEW);
+      const canAuditRollback = roleHasPerm(PERMISSIONS.AUDIT_ROLLBACK);
 
       if (sampleForm) sampleForm.style.display = (canCreateSample || canAppendSlice || canCsvImport) ? "" : "none";
       if (formEl) formEl.style.display = canCreateSample ? "" : "none";
@@ -1216,6 +1451,7 @@ const page = `<!doctype html>
           let visible = true;
           if (view === "deliveries") visible = canDeliveryView;
           if (view === "stats") visible = canStatsView;
+          if (view === "audit") visible = canAuditView;
           if (view === "cards" || view === "workbench") visible = canViewSamples;
           tab.style.display = visible ? "" : "none";
         });
@@ -1227,14 +1463,17 @@ const page = `<!doctype html>
       const canViewSamples = roleHasPerm(PERMISSIONS.SAMPLE_VIEW);
       const canDeliveryView = roleHasPerm(PERMISSIONS.DELIVERY_VIEW);
       const canStatsView = roleHasPerm(PERMISSIONS.STATS_VIEW);
+      const canAuditView = roleHasPerm(PERMISSIONS.AUDIT_VIEW);
 
       if (activeView === "deliveries" && canDeliveryView) return "deliveries";
       if (activeView === "stats" && canStatsView) return "stats";
+      if (activeView === "audit" && canAuditView) return "audit";
       if ((activeView === "cards" || activeView === "workbench") && canViewSamples) return activeView;
 
       if (canViewSamples) return "cards";
       if (canDeliveryView) return "deliveries";
       if (canStatsView) return "stats";
+      if (canAuditView) return "audit";
       return "cards";
     }
 
@@ -1250,12 +1489,18 @@ const page = `<!doctype html>
     const deliveriesEl = document.querySelector("#deliveries");
     const deliveriesCountEl = document.querySelector("#deliveries-count");
     const viewSamplesArea = document.querySelector("#view-samples-area");
+    const auditTimelineEl = document.querySelector("#audit-timeline");
+    const auditCountEl = document.querySelector("#audit-count");
+    const auditStatsEl = document.querySelector("#audit-stats");
     let samples = [];
     let deliveries = [];
     let methodDict = [];
     let methodDictLoaded = false;
     let workbenchError = null;
     let activeView = "cards";
+    let auditLog = [];
+    let auditTotal = 0;
+    const auditFilterFields = ["sample", "action", "operator"];
     const filterFields = ["project", "borehole", "corebox", "owner", "status", "delivery"];
     const deliveryFilterFields = ["project", "unit", "person"];
 
@@ -1497,6 +1742,8 @@ const page = `<!doctype html>
         renderDeliveries();
       } else if (view === "stats") {
         loadAndRenderStats();
+      } else if (view === "audit") {
+        loadAndRenderAudit();
       } else if (view === "workbench") {
         renderWorkbench();
       } else {
@@ -2440,10 +2687,323 @@ const page = `<!doctype html>
         renderDeliveries();
       } else if (activeView === "stats") {
         loadAndRenderStats();
+      } else if (activeView === "audit") {
+        loadAndRenderAudit();
       } else {
         render();
       }
     }
+
+    async function loadAndRenderAudit() {
+      if (!roleHasPerm(PERMISSIONS.AUDIT_VIEW)) return;
+      try {
+        const filters = getAuditFilters();
+        const params = new URLSearchParams();
+        if (filters.sampleId) params.set("sampleId", filters.sampleId);
+        if (filters.action) params.set("action", filters.action);
+        const queryStr = params.toString() ? "?" + params.toString() : "";
+        const data = await api("/api/audit" + queryStr);
+        auditLog = data.logs || [];
+        auditTotal = data.total || 0;
+        populateAuditFilterOptions(data);
+        renderAudit();
+      } catch (err) {
+        console.error("Failed to load audit log:", err);
+        if (auditTimelineEl) {
+          auditTimelineEl.innerHTML = '<div class="audit-empty">加载审计记录失败：' + escapeHtml(err.message || "未知错误") + '</div>';
+        }
+      }
+    }
+
+    function getAuditFilters() {
+      const f = {};
+      const sampleEl = document.querySelector("#audit-filter-sample");
+      const actionEl = document.querySelector("#audit-filter-action");
+      if (sampleEl && sampleEl.value) f.sampleId = sampleEl.value;
+      if (actionEl && actionEl.value) f.action = actionEl.value;
+      return f;
+    }
+
+    function applyAuditFilters(list, filters) {
+      return list.filter(item => {
+        if (filters.sampleId && item.sampleId !== filters.sampleId) return false;
+        if (filters.action && item.action !== filters.action) return false;
+        return true;
+      });
+    }
+
+    function populateAuditFilterOptions(data) {
+      const sampleSel = document.querySelector("#audit-filter-sample");
+      const actionSel = document.querySelector("#audit-filter-action");
+      if (sampleSel && data.sampleIds) {
+        const current = sampleSel.value;
+        sampleSel.innerHTML = '<option value="">全部样本</option>' +
+          data.sampleIds.map(id => '<option value="' + escapeHtml(id) + '">' + escapeHtml(id) + '</option>').join("");
+        sampleSel.value = current;
+      }
+      if (actionSel && data.actions) {
+        const current = actionSel.value;
+        const actionLabels = {
+          "sample:create": "创建样本",
+          "slice:append": "追加切片",
+          "slice:batch": "批量追加切片",
+          "step:advance": "推进步骤",
+          "observation:create": "填写观察结果",
+          "delivery:confirm": "确认交付",
+          "csv:import": "CSV导入",
+          "sample:rollback": "回滚样本"
+        };
+        actionSel.innerHTML = '<option value="">全部操作</option>' +
+          data.actions.map(act => '<option value="' + escapeHtml(act) + '">' + escapeHtml(actionLabels[act] || act) + '</option>').join("");
+        actionSel.value = current;
+      }
+    }
+
+    function renderAudit() {
+      const filters = getAuditFilters();
+      const filtered = applyAuditFilters(auditLog, filters);
+      const count = filtered.length;
+
+      if (auditCountEl) {
+        auditCountEl.textContent = count ? "筛选结果：共 " + count + " 条审计记录（总计 " + auditTotal + " 条）" : "没有符合条件的审计记录";
+      }
+
+      if (auditStatsEl) {
+        const actionCounts = {};
+        filtered.forEach(item => {
+          actionCounts[item.action] = (actionCounts[item.action] || 0) + 1;
+        });
+        const sampleCount = new Set(filtered.map(i => i.sampleId)).size;
+        const operatorCount = new Set(filtered.map(i => i.operator)).size;
+        auditStatsEl.innerHTML =
+          '<div class="audit-stat"><strong>' + count + '</strong><span>审计记录数</span></div>' +
+          '<div class="audit-stat"><strong>' + sampleCount + '</strong><span>涉及样本</span></div>' +
+          '<div class="audit-stat"><strong>' + operatorCount + '</strong><span>操作者</span></div>' +
+          '<div class="audit-stat"><strong>' + Object.keys(actionCounts).length + '</strong><span>操作类型</span></div>';
+      }
+
+      if (auditTimelineEl) {
+        if (filtered.length === 0) {
+          auditTimelineEl.innerHTML = '<div class="audit-empty">还没有审计记录。进行样本创建、切片追加、步骤推进等操作后，会自动生成审计记录。</div>';
+          return;
+        }
+
+        const canRollback = roleHasPerm(PERMISSIONS.AUDIT_ROLLBACK);
+        auditTimelineEl.innerHTML = filtered.map(item => {
+          const isRollback = item.action === "sample:rollback";
+          const itemClass = isRollback ? "audit-item rollback" : "audit-item";
+          const actionLabel = item.actionLabel || item.action;
+          const operatorName = item.operatorName || item.operator || "未知";
+          const timestamp = item.timestamp ? formatObsDate(item.timestamp) : "";
+          const note = item.note || "";
+          const hasSnapshot = !!item.snapshot;
+          const beforeSummary = item.beforeSummary;
+          const afterSummary = item.afterSummary;
+
+          let summaryHtml = "";
+          if (beforeSummary || afterSummary) {
+            const beforeHtml = beforeSummary ? renderAuditSummaryBlock("变更前", beforeSummary) : "";
+            const afterHtml = afterSummary ? renderAuditSummaryBlock("变更后", afterSummary) : "";
+            summaryHtml = '<div class="audit-item-summary">' + beforeHtml + afterHtml + '</div>';
+          }
+
+          let actionsHtml = "";
+          if (canRollback && hasSnapshot && !isRollback) {
+            actionsHtml = '<div class="audit-item-actions">' +
+              '<button type="button" class="secondary" data-audit-detail="' + item.id + '">查看详情</button>' +
+              '<button type="button" class="danger" data-rollback="' + item.id + '">回滚到此版本</button>' +
+              '</div>';
+          } else if (canRollback && hasSnapshot && isRollback) {
+            actionsHtml = '<div class="audit-item-actions">' +
+              '<button type="button" class="secondary" data-audit-detail="' + item.id + '">查看详情</button>' +
+              '</div>';
+          }
+
+          return '<div class="' + itemClass + '" data-audit-id="' + escapeHtml(item.id) + '">' +
+            '<div class="audit-item-header">' +
+              '<div class="audit-item-title">' +
+                '<span class="audit-item-action">' + escapeHtml(actionLabel) + '</span>' +
+                '<span>' + escapeHtml(item.sampleId || "-") + '</span>' +
+              '</div>' +
+              '<div class="audit-item-time">' + timestamp + '</div>' +
+            '</div>' +
+            '<div class="audit-item-meta">' +
+              '<span>操作者：<b>' + escapeHtml(operatorName) + '</b></span>' +
+              '<span>来源接口：<b>' + escapeHtml(item.sourceApi || "-") + '</b></span>' +
+            '</div>' +
+            (note ? '<div class="audit-item-note">' + escapeHtml(note) + '</div>' : "") +
+            summaryHtml +
+            actionsHtml +
+            '</div>';
+        }).join("");
+
+        bindAuditEvents();
+      }
+    }
+
+    function renderAuditSummaryBlock(title, summary) {
+      const slicesHtml = summary.sliceStatuses && summary.sliceStatuses.length
+        ? '<div class="slices-summary-list">' + summary.sliceStatuses.map(s =>
+            '<div><span class="status-pill">' + escapeHtml(s.status) + '</span>' +
+            escapeHtml(s.id) + '（' + escapeHtml(s.method) + '）' +
+            '</div>'
+          ).join("") + '</div>'
+        : '<div class="meta">无切片数据</div>';
+
+      return '<div class="audit-summary-block">' +
+        '<h4>' + escapeHtml(title) + '</h4>' +
+        '<div style="margin-bottom:6px;">' +
+          '<span class="status-pill">' + escapeHtml(summary.status || "-") + '</span>' +
+          '<span class="status-pill" style="background:#eef1ea;">' + escapeHtml(summary.delivery || "-") + '</span>' +
+          '<span style="color:var(--muted);font-size:11px;">' + (summary.sliceCount || 0) + ' 个切片</span>' +
+        '</div>' +
+        slicesHtml +
+        '</div>';
+    }
+
+    function bindAuditEvents() {
+      document.querySelectorAll("[data-rollback]").forEach(btn => {
+        btn.onclick = () => {
+          const auditId = btn.dataset.rollback;
+          openRollbackConfirmModal(auditId);
+        };
+      });
+      document.querySelectorAll("[data-audit-detail]").forEach(btn => {
+        btn.onclick = () => {
+          const auditId = btn.dataset.auditDetail;
+          openAuditDetailModal(auditId);
+        };
+      });
+    }
+
+    function openAuditDetailModal(auditId) {
+      const entry = auditLog.find(e => e.id === auditId);
+      if (!entry) return;
+
+      const mask = document.createElement("div");
+      mask.className = "modal-mask";
+      const modal = document.createElement("div");
+      modal.className = "modal wide";
+
+      const snapshotHtml = entry.snapshot
+        ? '<div class="delivery-section"><h3>完整快照数据</h3>' +
+          '<pre style="background:#f5f8f0;border:1px solid var(--line);border-radius:6px;padding:12px;max-height:300px;overflow:auto;font-size:11px;">' +
+          escapeHtml(JSON.stringify(entry.snapshot, null, 2)) +
+          '</pre></div>'
+        : '<div class="delivery-section"><h3>快照数据</h3><div class="meta">该审计记录没有快照数据</div></div>';
+
+      modal.innerHTML = '<h2>审计记录详情 — ' + escapeHtml(entry.id) + '</h2>' +
+        '<div class="delivery-section">' +
+          '<h3>基本信息</h3>' +
+          '<div class="delivery-basic-info">' +
+            '<div><b>操作类型：</b>' + escapeHtml(entry.actionLabel || entry.action) + '</div>' +
+            '<div><b>操作时间：</b>' + formatObsDate(entry.timestamp) + '</div>' +
+            '<div><b>样本编号：</b>' + escapeHtml(entry.sampleId || "-") + '</div>' +
+            '<div><b>操作者：</b>' + escapeHtml(entry.operatorName || entry.operator || "未知") + '</div>' +
+            '<div><b>来源接口：</b>' + escapeHtml(entry.sourceApi || "-") + '</div>' +
+            '<div><b>记录ID：</b>' + escapeHtml(entry.id) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="delivery-section">' +
+          '<h3>变更说明</h3>' +
+          '<div class="audit-item-note">' + escapeHtml(entry.note || "无") + '</div>' +
+        '</div>' +
+        snapshotHtml +
+        '<div class="modal-footer">' +
+          '<button type="button" class="secondary" id="audit-detail-close">关闭</button>' +
+          (roleHasPerm(PERMISSIONS.AUDIT_ROLLBACK) && entry.snapshot && entry.action !== "sample:rollback"
+            ? '<button type="button" class="danger" id="audit-detail-rollback">回滚到此版本</button>'
+            : "") +
+        '</div>';
+
+      mask.appendChild(modal);
+      modalRoot.appendChild(mask);
+
+      modal.querySelector("#audit-detail-close").onclick = () => mask.remove();
+      mask.onclick = e => { if (e.target === mask) mask.remove(); };
+
+      const rollbackBtn = modal.querySelector("#audit-detail-rollback");
+      if (rollbackBtn) {
+        rollbackBtn.onclick = () => {
+          mask.remove();
+          openRollbackConfirmModal(auditId);
+        };
+      }
+    }
+
+    function openRollbackConfirmModal(auditId) {
+      const entry = auditLog.find(e => e.id === auditId);
+      if (!entry) return;
+      if (!entry.snapshot) {
+        alert("该审计记录没有快照数据，无法回滚");
+        return;
+      }
+
+      const sampleId = entry.sampleId;
+      const mask = document.createElement("div");
+      mask.className = "modal-mask";
+      const modal = document.createElement("div");
+      modal.className = "modal";
+
+      const summary = entry.afterSummary || {};
+      const sliceCount = summary.sliceCount || 0;
+      const status = summary.status || "-";
+      const delivery = summary.delivery || "-";
+
+      modal.innerHTML = '<h2>确认回滚 — ' + escapeHtml(sampleId) + '</h2>' +
+        '<div class="meta">将回滚到审计记录 ' + escapeHtml(auditId) + '（' + formatObsDate(entry.timestamp) + '）</div>' +
+        '<div class="rollback-confirm-info">' +
+          '<h4>⚠️ 回滚操作不可逆</h4>' +
+          '<ul>' +
+            '<li>样本状态将恢复为「' + escapeHtml(status) + '」</li>' +
+            '<li>交付状态将恢复为「' + escapeHtml(delivery) + '」</li>' +
+            '<li>切片数量：' + sliceCount + ' 个</li>' +
+            '<li>切片日志、观察记录将全部恢复到该版本</li>' +
+            '<li>如果该版本之后有交付记录，回滚后可能会被删除</li>' +
+            '<li>回滚操作本身也会被记录到审计日志</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div id="rollback-alert" style="margin-top:10px;"></div>' +
+        '<div class="modal-footer">' +
+          '<button type="button" class="secondary" id="rollback-cancel">取消</button>' +
+          '<button type="button" class="danger" id="rollback-confirm">确认回滚</button>' +
+        '</div>';
+
+      mask.appendChild(modal);
+      modalRoot.appendChild(mask);
+
+      modal.querySelector("#rollback-cancel").onclick = () => mask.remove();
+      mask.onclick = e => { if (e.target === mask) mask.remove(); };
+
+      modal.querySelector("#rollback-confirm").onclick = async () => {
+        const confirmBtn = modal.querySelector("#rollback-confirm");
+        const alertEl = modal.querySelector("#rollback-alert");
+        try {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "回滚中...";
+          const result = await api('/api/samples/' + encodeURIComponent(sampleId) + '/rollback', {
+            method: 'POST',
+            body: JSON.stringify({ auditId })
+          });
+          mask.remove();
+          alert("回滚成功！\n" + (result.note || ""));
+          await Promise.all([
+            load(),
+            loadAndRenderAudit()
+          ]);
+        } catch (err) {
+          const msg = err.message || "回滚失败";
+          showAlert(alertEl, [msg]);
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "确认回滚";
+        }
+      };
+    }
+
+    function onAuditFilterChange() {
+      loadAndRenderAudit();
+    }
+
     function onFilterChange() {
       const filters = getFilters();
       history.replaceState(null, "", filtersToUrl(filters));
@@ -2493,6 +3053,21 @@ const page = `<!doctype html>
       });
       loadAndRenderStats();
     };
+    const auditFilterSelects = ["#audit-filter-sample", "#audit-filter-action", "#audit-filter-operator"];
+    auditFilterSelects.forEach(selector => {
+      const el = document.querySelector(selector);
+      if (el) el.addEventListener("change", onAuditFilterChange);
+    });
+    const clearAuditFiltersBtn = document.querySelector("#clear-audit-filters");
+    if (clearAuditFiltersBtn) {
+      clearAuditFiltersBtn.onclick = () => {
+        auditFilterSelects.forEach(selector => {
+          const el = document.querySelector(selector);
+          if (el) el.value = "";
+        });
+        loadAndRenderAudit();
+      };
+    }
     document.querySelector("#reload").onclick = load;
     document.querySelectorAll(".view-tab").forEach(tab => {
       tab.onclick = () => switchView(tab.dataset.view);
@@ -2829,6 +3404,7 @@ const server = http.createServer(async (req, res) => {
       };
       updateSampleStatus(sample);
       db.samples.unshift(sample);
+      recordAudit(db, { sampleId: sample.id, action: "sample:create", operator: currentRole, sourceApi: "POST /api/samples", beforeSample: null, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 201, sample);
     }
@@ -2845,8 +3421,10 @@ const server = http.createServer(async (req, res) => {
       if (validationErrors.length > 0) {
         return sendJson(res, 400, { error: validationErrors });
       }
+      const beforeSample = createSampleSnapshot(sample);
       sample.slices.push({ id: input.id.trim(), method: (input.method || "未指定").trim(), observation: "", observations: [], status: "取样", logs: [{ at: new Date().toISOString(), step: "取样", note: "新增切片任务" }] });
       updateSampleStatus(sample);
+      recordAudit(db, { sampleId: sample.id, action: "slice:append", operator: currentRole, sourceApi: "POST /api/samples/:id/slices", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 201, sample);
     }
@@ -2867,6 +3445,7 @@ const server = http.createServer(async (req, res) => {
       if (validationErrors.length > 0) {
         return sendJson(res, 400, { error: validationErrors });
       }
+      const beforeSample = createSampleSnapshot(sample);
       slices.forEach(s => {
         sample.slices.push({
           id: s.id.trim(),
@@ -2878,6 +3457,7 @@ const server = http.createServer(async (req, res) => {
         });
       });
       updateSampleStatus(sample);
+      recordAudit(db, { sampleId: sample.id, action: "slice:batch", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/batch", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 201, sample);
     }
@@ -2908,10 +3488,12 @@ const server = http.createServer(async (req, res) => {
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
       const slice = sample.slices.find(item => item.id === logMatch[2]);
       if (!slice) return sendJson(res, 404, { error: "slice_not_found" });
+      const beforeSample = createSampleSnapshot(sample);
       slice.status = input.step;
       if (input.step === "观察") slice.observation = input.note || slice.observation;
       slice.logs.push({ at: new Date().toISOString(), step: input.step, note: input.note || "" });
       updateSampleStatus(sample);
+      recordAudit(db, { sampleId: sample.id, action: "step:advance", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/logs", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 200, sample);
     }
@@ -3040,9 +3622,11 @@ const server = http.createServer(async (req, res) => {
           owner: sample.owner
         }
       };
+      const beforeSample = createSampleSnapshot(sample);
       db.deliveries.unshift(delivery);
       sample.delivery = "已交付";
       updateSampleStatus(sample);
+      recordAudit(db, { sampleId: sample.id, action: "delivery:confirm", operator: currentRole, sourceApi: "POST /api/samples/:id/deliveries", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 201, delivery);
     }
@@ -3099,6 +3683,7 @@ const server = http.createServer(async (req, res) => {
           remark
         };
         if (!Array.isArray(slice.observations)) slice.observations = [];
+        const beforeSample = createSampleSnapshot(sample);
         slice.observations.push(record);
         const summaryParts = [];
         if (lithology) summaryParts.push(lithology);
@@ -3106,6 +3691,7 @@ const server = http.createServer(async (req, res) => {
         if (texture) summaryParts.push(texture);
         slice.observation = summaryParts.join("；") || remark;
         updateSampleStatus(sample);
+        recordAudit(db, { sampleId: sample.id, action: "observation:create", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/observations", beforeSample, afterSample: sample });
         await saveDb(db);
         return sendJson(res, 201, { sample, record });
       }
@@ -3197,6 +3783,7 @@ const server = http.createServer(async (req, res) => {
             };
             updateSampleStatus(newSample);
             db.samples.unshift(newSample);
+            recordAudit(db, { sampleId: newSample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/import", beforeSample: null, afterSample: newSample });
             successSamples++;
             successSlices += item.newSlices.length;
             results.push({
@@ -3208,6 +3795,7 @@ const server = http.createServer(async (req, res) => {
           } else {
             const sample = db.samples.find(s => s.id === item.sampleId);
             if (sample) {
+              const beforeSample = createSampleSnapshot(sample);
               item.newSlices.forEach(s => {
                 sample.slices.push({
                   id: s.id,
@@ -3219,6 +3807,7 @@ const server = http.createServer(async (req, res) => {
                 });
               });
               updateSampleStatus(sample);
+              recordAudit(db, { sampleId: sample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/import", beforeSample, afterSample: sample });
               successSlices += item.newSlices.length;
               results.push({
                 type: "append_slices",
@@ -3717,6 +4306,67 @@ const server = http.createServer(async (req, res) => {
       method.enabled = !method.enabled;
       await saveDb(db);
       return sendJson(res, 200, { ...method, usageCount: countMethodUsage(db, method.name) });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/audit") {
+      if (!requirePermission(currentRole, PERMISSIONS.AUDIT_VIEW, res)) return;
+      const sampleId = url.searchParams.get("sampleId") || "";
+      const action = url.searchParams.get("action") || "";
+      const limit = Math.min(Number(url.searchParams.get("limit")) || 100, 500);
+      let logs = db.auditLog;
+      if (sampleId) logs = logs.filter(e => e.sampleId === sampleId);
+      if (action) logs = logs.filter(e => e.action === action);
+      const total = logs.length;
+      logs = logs.slice(0, limit);
+      const sampleIds = [...new Set(db.auditLog.map(e => e.sampleId))].sort();
+      const actions = [...new Set(db.auditLog.map(e => e.action))].sort();
+      return sendJson(res, 200, { logs, total, sampleIds, actions });
+    }
+
+    const rollbackMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/rollback$/);
+    if (rollbackMatch && req.method === "POST") {
+      if (!requirePermission(currentRole, PERMISSIONS.AUDIT_ROLLBACK, res)) return;
+      const sampleId = rollbackMatch[1];
+      const sample = db.samples.find(item => item.id === sampleId);
+      if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      const input = await body(req);
+      const auditId = input.auditId;
+      if (!auditId) return sendJson(res, 400, { error: "请指定要回滚到的审计记录ID" });
+      const auditEntry = db.auditLog.find(e => e.id === auditId && e.sampleId === sampleId);
+      if (!auditEntry) return sendJson(res, 404, { error: "audit_entry_not_found" });
+      if (!auditEntry.snapshot) return sendJson(res, 400, { error: "该审计记录没有快照数据，无法回滚" });
+      const beforeRollback = createSampleSnapshot(sample);
+      const restoredSample = JSON.parse(JSON.stringify(auditEntry.snapshot));
+      migrateSample(restoredSample);
+      const wasDelivered = beforeRollback.delivery === "已交付";
+      const willBeDelivered = restoredSample.delivery === "已交付";
+      updateSampleStatus(restoredSample);
+      const sampleIdx = db.samples.findIndex(s => s.id === sampleId);
+      if (sampleIdx >= 0) db.samples[sampleIdx] = restoredSample;
+      const removedDeliveries = [];
+      if (wasDelivered && !willBeDelivered) {
+        const toRemove = db.deliveries.filter(d => d.sampleId === sampleId);
+        removedDeliveries.push(...toRemove.map(d => d.id));
+        db.deliveries = db.deliveries.filter(d => d.sampleId !== sampleId);
+      }
+      const rollbackNote = `回滚到审计记录 ${auditId}（${auditEntry.actionLabel || auditEntry.action}，${auditEntry.timestamp}）` +
+        (removedDeliveries.length ? `；已删除交付记录：${removedDeliveries.join("、")}` : "");
+      recordAudit(db, {
+        sampleId,
+        action: "sample:rollback",
+        operator: currentRole,
+        sourceApi: "POST /api/samples/:id/rollback",
+        beforeSample: beforeRollback,
+        afterSample: restoredSample,
+        note: rollbackNote
+      });
+      await saveDb(db);
+      return sendJson(res, 200, {
+        sample: restoredSample,
+        rollbackTo: auditId,
+        removedDeliveries,
+        note: rollbackNote
+      });
     }
 
     sendJson(res, 404, { error: "not_found" });

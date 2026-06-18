@@ -1,6 +1,32 @@
 {
   "samples": [
     {
+      "id": "CORE-1781780732614",
+      "project": "测试项目",
+      "borehole": "ZK-001",
+      "coreBox": "BX-01",
+      "depth": "100-102m",
+      "owner": "测试人",
+      "status": "制片中",
+      "delivery": "未交付",
+      "slices": [
+        {
+          "id": "SL-020-A",
+          "method": "普通薄片",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "CORE-001",
       "project": "东岭铜矿薄片",
       "borehole": "ZK-17",
@@ -38,7 +64,7 @@
       "coreBox": "BX-10",
       "depth": "132.1-132.5m",
       "owner": "陆川",
-      "status": "待切割",
+      "status": "制片中",
       "delivery": "未交付",
       "slices": [
         {
@@ -252,7 +278,7 @@
       "coreBox": "BX-15",
       "depth": "178.5-178.9m",
       "owner": "王涛",
-      "status": "待切割",
+      "status": "制片中",
       "delivery": "未交付",
       "slices": [
         {
@@ -482,6 +508,283 @@
       "enabled": false,
       "createdAt": "2026-01-01T00:00:00.000Z",
       "sortOrder": 5
+    }
+  ],
+  "auditLog": [
+    {
+      "id": "AUD-1781780848290-yy20",
+      "sampleId": "CORE-1781780732614",
+      "action": "sample:rollback",
+      "actionLabel": "回滚样本",
+      "operator": "registrar",
+      "operatorName": "样本登记人员",
+      "timestamp": "2026-06-18T11:07:28.290Z",
+      "sourceApi": "POST /api/samples/:id/rollback",
+      "note": "回滚到审计记录 AUD-1781780732615-med1（创建样本，2026-06-18T11:05:32.615Z）",
+      "beforeSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 2,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            },
+            "lastObservation": null
+          },
+          {
+            "id": "SL-020-B",
+            "method": "茜素红染色",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:06:26.838Z",
+              "step": "取样",
+              "note": "批量追加切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "observation": "",
+            "observations": [],
+            "status": "取样",
+            "logs": [
+              {
+                "at": "2026-06-18T11:05:32.614Z",
+                "step": "取样",
+                "note": "创建初始切片任务"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781780786838-8i36",
+      "sampleId": "CORE-1781780732614",
+      "action": "slice:batch",
+      "actionLabel": "批量追加切片",
+      "operator": "registrar",
+      "operatorName": "样本登记人员",
+      "timestamp": "2026-06-18T11:06:26.838Z",
+      "sourceApi": "POST /api/samples/:id/slices/batch",
+      "note": "切片数量：1 → 2；新增切片 SL-020-B（茜素红染色）",
+      "beforeSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 2,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            },
+            "lastObservation": null
+          },
+          {
+            "id": "SL-020-B",
+            "method": "茜素红染色",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:06:26.838Z",
+              "step": "取样",
+              "note": "批量追加切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "observation": "",
+            "observations": [],
+            "status": "取样",
+            "logs": [
+              {
+                "at": "2026-06-18T11:05:32.614Z",
+                "step": "取样",
+                "note": "创建初始切片任务"
+              }
+            ]
+          },
+          {
+            "id": "SL-020-B",
+            "method": "茜素红染色",
+            "observation": "",
+            "observations": [],
+            "status": "取样",
+            "logs": [
+              {
+                "at": "2026-06-18T11:06:26.838Z",
+                "step": "取样",
+                "note": "批量追加切片任务"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781780732615-med1",
+      "sampleId": "CORE-1781780732614",
+      "action": "sample:create",
+      "actionLabel": "创建样本",
+      "operator": "registrar",
+      "operatorName": "样本登记人员",
+      "timestamp": "2026-06-18T11:05:32.615Z",
+      "sourceApi": "POST /api/samples",
+      "note": "新建样本 CORE-1781780732614（测试项目），含 1 个切片",
+      "beforeSummary": null,
+      "afterSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "observation": "",
+            "observations": [],
+            "status": "取样",
+            "logs": [
+              {
+                "at": "2026-06-18T11:05:32.614Z",
+                "step": "取样",
+                "note": "创建初始切片任务"
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }
