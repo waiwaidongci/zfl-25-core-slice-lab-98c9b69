@@ -1,6 +1,32 @@
 {
   "samples": [
     {
+      "id": "CORE-1781760246914",
+      "project": "测试项目",
+      "borehole": "ZK-001",
+      "coreBox": "BX-001",
+      "depth": "100-101m",
+      "owner": "测试",
+      "status": "制片中",
+      "delivery": "未交付",
+      "slices": [
+        {
+          "id": "SL-999-Z",
+          "method": "普通薄片",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-18T05:24:06.914Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "CORE-1781682377671",
       "project": "测试项目批量",
       "borehole": "ZK-TEST-890",
@@ -110,7 +136,7 @@
           "id": "SL-001-A",
           "method": "茜素红染色",
           "observation": "",
-          "status": "研磨",
+          "status": "染色",
           "logs": [
             {
               "at": "2026-06-12T10:00:00.000Z",
@@ -121,6 +147,16 @@
               "at": "2026-06-13T11:20:00.000Z",
               "step": "切割",
               "note": "完成粗切"
+            },
+            {
+              "at": "2026-06-18T05:24:51.040Z",
+              "step": "研磨",
+              "note": "测试推进"
+            },
+            {
+              "at": "2026-06-18T05:27:31.148Z",
+              "step": "染色",
+              "note": "制片人员推进"
             }
           ],
           "observations": []
@@ -166,7 +202,7 @@
         {
           "id": "SL-003-A",
           "method": "茜素红染色",
-          "observation": "矽卡岩化大理岩；方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%；中细粒变晶结构，块状构造，局部条带",
+          "observation": "观察步骤测试",
           "status": "观察",
           "logs": [
             {
@@ -188,6 +224,11 @@
               "at": "2026-06-13T16:00:00.000Z",
               "step": "染色",
               "note": "茜素红+铁氰化钾"
+            },
+            {
+              "at": "2026-06-18T05:24:51.048Z",
+              "step": "观察",
+              "note": "观察步骤测试"
             }
           ],
           "observations": [
@@ -380,7 +421,7 @@
         {
           "id": "SL-008-A",
           "method": "茜素红染色",
-          "observation": "",
+          "observation": "中细粒砂岩；石英70%+长石20%+其他10%",
           "status": "观察",
           "logs": [
             {
@@ -404,7 +445,16 @@
               "note": ""
             }
           ],
-          "observations": []
+          "observations": [
+            {
+              "id": "OBS-1781760451269",
+              "at": "2026-06-18T05:27:31.269Z",
+              "lithology": "中细粒砂岩",
+              "minerals": "石英70%+长石20%+其他10%",
+              "texture": "",
+              "remark": ""
+            }
+          ]
         }
       ]
     },
@@ -487,6 +537,31 @@
     }
   ],
   "deliveries": [
+    {
+      "id": "DLV-1781760246927",
+      "sampleId": "CORE-004",
+      "deliveredAt": "2026-06-18T05:24:06.927Z",
+      "deliveredBy": "测试",
+      "receivingUnit": "测试单位",
+      "remark": "",
+      "slices": [
+        {
+          "id": "SL-004-A",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": null
+        }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-004",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-05",
+        "coreBox": "BX-12",
+        "depth": "245.2-245.6m",
+        "owner": "陈明"
+      }
+    },
     {
       "id": "DLV-001",
       "sampleId": "CORE-004",

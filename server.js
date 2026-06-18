@@ -11,6 +11,94 @@ const statuses = ["待切割", "制片中", "待观察", "已交付"];
 const taskSteps = ["取样", "切割", "研磨", "染色", "观察"];
 const SLICE_ID_PATTERN = /^SL-\d+-[A-Za-z]+$/;
 
+const ROLES = {
+  REGISTRAR: "registrar",
+  PRODUCER: "producer",
+  OBSERVER: "observer",
+  DELIVERER: "deliverer"
+};
+
+const ROLE_INFO = {
+  [ROLES.REGISTRAR]: { name: "样本登记人员", desc: "负责创建样本、录入切片任务、批量导入" },
+  [ROLES.PRODUCER]: { name: "制片人员", desc: "负责推进制片工序：取样、切割、研磨、染色" },
+  [ROLES.OBSERVER]: { name: "观察人员", desc: "负责填写观察结果、归档观察记录" },
+  [ROLES.DELIVERER]: { name: "交付人员", desc: "负责生成交付包、查看历史交付记录" }
+};
+
+const PERMISSIONS = {
+  SAMPLE_CREATE: "sample:create",
+  SAMPLE_APPEND_SLICE: "sample:appendSlice",
+  SAMPLE_VIEW: "sample:view",
+  CSV_IMPORT: "csv:import",
+  STEP_ADVANCE: "step:advance",
+  STEP_LOG: "step:log",
+  OBSERVATION_CREATE: "observation:create",
+  OBSERVATION_VIEW: "observation:view",
+  DELIVERY_CREATE: "delivery:create",
+  DELIVERY_VIEW: "delivery:view",
+  DELIVERY_PREVIEW: "delivery:preview",
+  STATS_VIEW: "stats:view",
+  METHOD_MANAGE: "method:manage",
+  METHOD_VIEW: "method:view"
+};
+
+const ROLE_PERMISSIONS = {
+  [ROLES.REGISTRAR]: [
+    PERMISSIONS.SAMPLE_CREATE,
+    PERMISSIONS.SAMPLE_APPEND_SLICE,
+    PERMISSIONS.SAMPLE_VIEW,
+    PERMISSIONS.CSV_IMPORT,
+    PERMISSIONS.STATS_VIEW,
+    PERMISSIONS.METHOD_VIEW
+  ],
+  [ROLES.PRODUCER]: [
+    PERMISSIONS.SAMPLE_VIEW,
+    PERMISSIONS.STEP_ADVANCE,
+    PERMISSIONS.STEP_LOG,
+    PERMISSIONS.STATS_VIEW,
+    PERMISSIONS.METHOD_VIEW
+  ],
+  [ROLES.OBSERVER]: [
+    PERMISSIONS.SAMPLE_VIEW,
+    PERMISSIONS.OBSERVATION_CREATE,
+    PERMISSIONS.OBSERVATION_VIEW,
+    PERMISSIONS.STEP_LOG,
+    PERMISSIONS.STATS_VIEW,
+    PERMISSIONS.METHOD_VIEW
+  ],
+  [ROLES.DELIVERER]: [
+    PERMISSIONS.SAMPLE_VIEW,
+    PERMISSIONS.DELIVERY_CREATE,
+    PERMISSIONS.DELIVERY_VIEW,
+    PERMISSIONS.DELIVERY_PREVIEW,
+    PERMISSIONS.OBSERVATION_VIEW,
+    PERMISSIONS.STATS_VIEW,
+    PERMISSIONS.METHOD_VIEW
+  ]
+};
+
+function roleHasPermission(role, permission) {
+  const perms = ROLE_PERMISSIONS[role];
+  return perms && perms.includes(permission);
+}
+
+function requirePermission(role, permission, res) {
+  if (!role || !roleHasPermission(role, permission)) {
+    const roleName = role ? (ROLE_INFO[role]?.name || role) : "未登录";
+    sendJson(res, 403, { error: `权限不足：${roleName}无法执行此操作（需要 ${permission}）` });
+    return false;
+  }
+  return true;
+}
+
+function getRoleFromRequest(req) {
+  const headerRole = req.headers["x-role"];
+  if (headerRole && ROLE_PERMISSIONS[headerRole]) {
+    return headerRole;
+  }
+  return null;
+}
+
 const defaultMethods = [
   { id: "M-001", name: "普通薄片", description: "标准岩矿薄片制片，厚度0.03mm", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 1 },
   { id: "M-002", name: "茜素红染色", description: "碳酸盐矿物染色，区分方解石/白云石", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 2 },
@@ -731,6 +819,17 @@ const page = `<!doctype html>
     .slice-method-select-wrap { position: relative; }
     .slice-method-select-wrap select { padding-right: 40px; }
     .slice-method-custom-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--stone); cursor: pointer; padding: 4px 8px; font-size: 12px; }
+    .role-selector { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f5f8f0; border: 1px solid var(--line); border-radius: 8px; }
+    .role-selector label { margin: 0; font-size: 13px; color: var(--stone); font-weight: 600; }
+    .role-selector select { width: auto; min-width: 160px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--line); }
+    .role-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; }
+    .role-desc { font-size: 11px; color: var(--muted); max-width: 240px; }
+    .role-info-tip { padding: 10px 14px; background: #f5f8f0; border: 1px solid #c6dcb8; border-radius: 8px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .role-info-tip .role-main { display: flex; align-items: center; gap: 10px; }
+    .role-info-tip .role-perms { font-size: 12px; color: var(--stone); }
+    .role-required-warn { padding: 40px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; }
+    .role-required-warn h3 { color: var(--danger); margin: 0 0 8px; }
+    .no-perm-hint { font-size: 12px; color: var(--muted); font-style: italic; padding: 20px; text-align: center; background: #fafafa; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -739,7 +838,13 @@ const page = `<!doctype html>
       <h1>岩芯样本切片实验室</h1>
       <div class="meta">样本、切片任务、制片步骤和交付</div>
     </div>
-    <div style="display:flex;gap:12px;align-items:center;">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+      <div class="role-selector" id="role-selector">
+        <label>🔐 当前角色：</label>
+        <select id="role-select">
+          <option value="">-- 请选择角色 --</option>
+        </select>
+      </div>
       <div class="view-tabs" id="view-tabs">
         <button type="button" class="view-tab active" data-view="cards">样本卡片</button>
         <button type="button" class="view-tab" data-view="workbench">实验室工作台</button>
@@ -751,6 +856,32 @@ const page = `<!doctype html>
     </div>
   </header>
   <main>
+    <div id="role-info-container"></div>
+    <div id="no-role-warn" style="display:none;" class="panel">
+      <div class="role-required-warn">
+        <h3>⚠️ 请先选择角色</h3>
+        <p>为确保操作安全，本系统需要先选择当前操作角色才能使用功能。</p>
+        <p style="margin-top:10px;">请在页面右上角的「当前角色」下拉框中选择您的角色。</p>
+        <div style="margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; text-align:left;">
+          <div style="padding:12px; background:#f8faf5; border:1px solid var(--line); border-radius:6px;">
+            <b style="color:var(--accent);">📋 样本登记人员</b>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">创建样本、录入切片任务、CSV批量导入</div>
+          </div>
+          <div style="padding:12px; background:#f8faf5; border:1px solid var(--line); border-radius:6px;">
+            <b style="color:var(--accent);">🔬 制片人员</b>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">推进工序：取样→切割→研磨→染色</div>
+          </div>
+          <div style="padding:12px; background:#f8faf5; border:1px solid var(--line); border-radius:6px;">
+            <b style="color:var(--accent);">👁️ 观察人员</b>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">填写观察结果、归档观察记录</div>
+          </div>
+          <div style="padding:12px; background:#f8faf5; border:1px solid var(--line); border-radius:6px;">
+            <b style="color:var(--accent);">📦 交付人员</b>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">生成交付包、查看历史交付记录</div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="panel sample-form">
       <div class="import-tabs">
         <button type="button" class="import-tab active" data-import-tab="manual">手动创建</button>
@@ -927,8 +1058,170 @@ const page = `<!doctype html>
   </main>
   <div id="modal-root"></div>
   <script>
+    const ROLES = ${JSON.stringify(ROLES)};
+    const ROLE_INFO = ${JSON.stringify(ROLE_INFO)};
+    const PERMISSIONS = ${JSON.stringify(PERMISSIONS)};
+    const ROLE_PERMISSIONS = ${JSON.stringify(ROLE_PERMISSIONS)};
     const statuses = ${JSON.stringify(statuses)};
     const steps = ${JSON.stringify(taskSteps)};
+
+    let currentRole = localStorage.getItem("currentRole") || "";
+
+    function roleHasPerm(perm) {
+      if (!currentRole) return false;
+      const perms = ROLE_PERMISSIONS[currentRole];
+      return perms && perms.includes(perm);
+    }
+
+    function setRole(roleKey) {
+      currentRole = roleKey || "";
+      if (currentRole) {
+        localStorage.setItem("currentRole", currentRole);
+      } else {
+        localStorage.removeItem("currentRole");
+      }
+      const roleSelect = document.querySelector("#role-select");
+      if (roleSelect) roleSelect.value = currentRole;
+      applyRoleToUI();
+    }
+
+    function initRoleSelector() {
+      const roleSelect = document.querySelector("#role-select");
+      if (!roleSelect) return;
+      roleSelect.innerHTML = '<option value="">-- 请选择角色 --</option>' +
+        Object.keys(ROLE_INFO).map(key =>
+          '<option value="' + key + '"' + (key === currentRole ? ' selected' : '') + '>' +
+          ROLE_INFO[key].name + '</option>'
+        ).join("");
+      roleSelect.onchange = () => {
+        setRole(roleSelect.value);
+        load();
+      };
+    }
+
+    function applyRoleToUI() {
+      const sampleForm = document.querySelector(".sample-form");
+      const methodConfigBtn = document.querySelector("#method-config-btn");
+      const createSliceArea = document.querySelector("#create-slice-rows");
+      const importTabs = document.querySelector(".import-tabs");
+      const viewTabs = document.querySelector("#view-tabs");
+      const viewDeliveries = document.querySelector("#view-deliveries");
+      const viewStats = document.querySelector("#view-stats");
+      const batchAppendBtns = document.querySelectorAll("[data-batch-append]");
+      const deliverBtns = document.querySelectorAll("[data-deliver]");
+      const obsBtns = document.querySelectorAll("[data-observation]");
+      const workbenchAdvanceBtns = document.querySelectorAll("[data-workbench-advance]");
+      const workbenchLogBtns = document.querySelectorAll("[data-workbench-log]");
+      const workbenchObsBtns = document.querySelectorAll("[data-workbench-obs]");
+      const methodActions = document.querySelectorAll("[data-method-edit], [data-method-toggle]");
+      const methodAddBtn = document.querySelector("#method-add-btn");
+      const roleInfoContainer = document.querySelector("#role-info-container");
+      const noRoleWarn = document.querySelector("#no-role-warn");
+      const formEl = document.querySelector("#form");
+      const csvImportEl = document.querySelector("#import-csv");
+
+      if (!currentRole) {
+        if (sampleForm) sampleForm.style.display = "none";
+        if (viewSamplesArea) viewSamplesArea.style.display = "none";
+        if (methodConfigBtn) methodConfigBtn.style.display = "none";
+        if (viewDeliveries) viewDeliveries.classList.remove("active");
+        if (viewStats) viewStats.classList.remove("active");
+        if (document.querySelector("#view-cards")) document.querySelector("#view-cards").classList.remove("active");
+        if (document.querySelector("#view-workbench")) document.querySelector("#view-workbench").classList.remove("active");
+        if (noRoleWarn) noRoleWarn.style.display = "";
+        if (roleInfoContainer) roleInfoContainer.innerHTML = "";
+        return;
+      }
+
+      if (noRoleWarn) noRoleWarn.style.display = "none";
+      if (roleInfoContainer) {
+        const roleInfo = ROLE_INFO[currentRole] || {};
+        const rolePerms = ROLE_PERMISSIONS[currentRole] || [];
+        const permNames = {
+          "sample:create": "创建样本",
+          "sample:appendSlice": "追加切片",
+          "sample:view": "查看样本",
+          "csv:import": "CSV导入",
+          "step:advance": "推进工序",
+          "step:log": "记录步骤",
+          "observation:create": "填写观察",
+          "observation:view": "查看观察",
+          "delivery:create": "创建交付",
+          "delivery:view": "查看交付",
+          "delivery:preview": "交付预览",
+          "stats:view": "查看统计",
+          "method:manage": "工艺管理",
+          "method:view": "查看工艺"
+        };
+        const permLabels = rolePerms.map(p => permNames[p] || p).join("、");
+        roleInfoContainer.innerHTML = '<div class="role-info-tip">' +
+          '<div class="role-main">' +
+            '<span class="role-badge">🔐 ' + (roleInfo.name || currentRole) + '</span>' +
+            '<span class="role-desc">' + (roleInfo.desc || "") + '</span>' +
+          '</div>' +
+          '<div class="role-perms">权限：' + permLabels + '</div>' +
+        '</div>';
+      }
+
+      const canCreateSample = roleHasPerm(PERMISSIONS.SAMPLE_CREATE);
+      const canAppendSlice = roleHasPerm(PERMISSIONS.SAMPLE_APPEND_SLICE);
+      const canCsvImport = roleHasPerm(PERMISSIONS.CSV_IMPORT);
+      const canViewSamples = roleHasPerm(PERMISSIONS.SAMPLE_VIEW);
+      const canStepAdvance = roleHasPerm(PERMISSIONS.STEP_ADVANCE);
+      const canStepLog = roleHasPerm(PERMISSIONS.STEP_LOG);
+      const canObsCreate = roleHasPerm(PERMISSIONS.OBSERVATION_CREATE);
+      const canDeliveryCreate = roleHasPerm(PERMISSIONS.DELIVERY_CREATE);
+      const canDeliveryView = roleHasPerm(PERMISSIONS.DELIVERY_VIEW);
+      const canStatsView = roleHasPerm(PERMISSIONS.STATS_VIEW);
+      const canMethodManage = roleHasPerm(PERMISSIONS.METHOD_MANAGE);
+
+      if (sampleForm) sampleForm.style.display = (canCreateSample || canAppendSlice || canCsvImport) ? "" : "none";
+      if (formEl && !canCreateSample) formEl.style.display = "none";
+      if (formEl && canCreateSample) formEl.style.display = "";
+      if (importTabs) {
+        if (!canCsvImport && !canCreateSample) {
+          importTabs.style.display = "none";
+        } else {
+          importTabs.style.display = "";
+          const manualTab = importTabs.querySelector('[data-import-tab="manual"]');
+          const csvTab = importTabs.querySelector('[data-import-tab="csv"]');
+          if (manualTab) manualTab.style.display = canCreateSample ? "" : "none";
+          if (csvTab) csvTab.style.display = canCsvImport ? "" : "none";
+        }
+      }
+      if (csvImportEl && !canCsvImport) csvImportEl.style.display = "none";
+      if (viewSamplesArea) viewSamplesArea.style.display = canViewSamples ? "" : "none";
+      if (methodConfigBtn) methodConfigBtn.style.display = canMethodManage ? "" : "none";
+
+      batchAppendBtns.forEach(btn => btn.style.display = canAppendSlice ? "" : "none");
+      deliverBtns.forEach(btn => btn.style.display = canDeliveryCreate ? "" : "none");
+      obsBtns.forEach(btn => btn.style.display = canObsCreate ? "" : "none");
+      workbenchAdvanceBtns.forEach(btn => btn.style.display = canStepAdvance ? "" : "none");
+      workbenchLogBtns.forEach(btn => btn.style.display = (canStepLog || canStepAdvance || canObsCreate) ? "" : "none");
+      workbenchObsBtns.forEach(btn => btn.style.display = canObsCreate ? "" : "none");
+      methodActions.forEach(btn => btn.style.display = canMethodManage ? "" : "none");
+      if (methodAddBtn) methodAddBtn.style.display = canMethodManage ? "" : "none";
+
+      if (viewTabs) {
+        const tabs = viewTabs.querySelectorAll(".view-tab");
+        tabs.forEach(tab => {
+          const view = tab.dataset.view;
+          let visible = true;
+          if (view === "deliveries") visible = canDeliveryView;
+          if (view === "stats") visible = canStatsView;
+          if (view === "cards" || view === "workbench") visible = canViewSamples;
+          tab.style.display = visible ? "" : "none";
+        });
+      }
+
+      if (activeView === "deliveries" && !canDeliveryView) switchView("cards");
+      if (activeView === "stats" && !canStatsView) switchView("cards");
+      if ((activeView === "cards" || activeView === "workbench") && !canViewSamples) {
+        if (canDeliveryView) switchView("deliveries");
+        else if (canStatsView) switchView("stats");
+      }
+    }
+
     const form = document.querySelector("#form");
     const stats = document.querySelector("#stats");
     const samplesEl = document.querySelector("#samples");
@@ -1151,7 +1444,13 @@ const page = `<!doctype html>
       });
     }
     async function api(path, options) {
-      const res = await fetch(path, options && options.body ? { ...options, headers:{ "Content-Type":"application/json" } } : options);
+      const headers = (options && options.headers) ? { ...options.headers } : {};
+      headers["Content-Type"] = "application/json";
+      if (currentRole) {
+        headers["X-Role"] = currentRole;
+      }
+      const finalOptions = options ? { ...options, headers } : { headers };
+      const res = await fetch(path, finalOptions);
       const data = await res.json();
       if (!res.ok) {
         const errMsg = data.error ? (typeof data.error === "object" ? JSON.stringify(data.error) : data.error) : "请求失败";
@@ -1308,6 +1607,7 @@ const page = `<!doctype html>
         }).join("");
 
         bindWorkbenchEvents();
+        applyRoleToUI();
       } catch (err) {
         workbenchError = err.message;
         workbenchEl.innerHTML = '<div class="workbench-error">工作台加载失败：' + err.message + '<br><button type="button" class="secondary" style="margin-top:10px;" onclick="location.reload()">重新加载</button></div>';
@@ -1512,6 +1812,7 @@ const page = `<!doctype html>
         await load();
       });
       document.querySelectorAll("[data-deliver]").forEach(btn => btn.onclick = () => openDeliveryConfirmModal(btn.dataset.deliver));
+      applyRoleToUI();
     }
     function getDeliveryFilters() {
       const f = {};
@@ -2101,14 +2402,23 @@ const page = `<!doctype html>
     }
 
     async function load(){
+      initRoleSelector();
+      applyRoleToUI();
       try {
-        [samples, deliveries] = await Promise.all([
-          api("/api/samples"),
-          api("/api/deliveries")
-        ]);
-        await loadMethodDict();
-        if (!createSliceRowsEl.querySelectorAll(".slice-row").length) {
-          initCreateSliceRows();
+        if (!currentRole) {
+          samples = [];
+          deliveries = [];
+          methodDict = [];
+          methodDictLoaded = false;
+        } else {
+          [samples, deliveries] = await Promise.all([
+            api("/api/samples"),
+            api("/api/deliveries")
+          ]);
+          await loadMethodDict();
+          if (!createSliceRowsEl.querySelectorAll(".slice-row").length) {
+            initCreateSliceRows();
+          }
         }
       } catch (err) {
         samples = [];
@@ -2119,6 +2429,7 @@ const page = `<!doctype html>
       populateDeliveryFilterOptions();
       const urlFilters = urlToFilters();
       if (Object.keys(urlFilters).length) setFilters(urlFilters);
+      applyRoleToUI();
       if (activeView === "workbench") {
         renderWorkbench();
       } else if (activeView === "deliveries") {
@@ -2126,6 +2437,7 @@ const page = `<!doctype html>
       } else {
         render();
       }
+      applyRoleToUI();
     }
     function onFilterChange() {
       const filters = getFilters();
@@ -2449,14 +2761,36 @@ const page = `<!doctype html>
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    const currentRole = getRoleFromRequest(req);
     const db = await loadDb();
     if (req.method === "GET" && url.pathname === "/") {
       res.writeHead(200, { "Content-Type":"text/html; charset=utf-8" });
       return res.end(page);
     }
-    if (req.method === "GET" && url.pathname === "/api/samples") return sendJson(res, 200, db.samples);
+    if (req.method === "GET" && url.pathname === "/api/roles") {
+      const roleList = Object.keys(ROLE_INFO).map(key => ({
+        key,
+        name: ROLE_INFO[key].name,
+        desc: ROLE_INFO[key].desc,
+        permissions: ROLE_PERMISSIONS[key]
+      }));
+      return sendJson(res, 200, {
+        roles: roleList,
+        currentRole: currentRole ? {
+          key: currentRole,
+          name: ROLE_INFO[currentRole].name,
+          desc: ROLE_INFO[currentRole].desc,
+          permissions: ROLE_PERMISSIONS[currentRole]
+        } : null
+      });
+    }
+    if (req.method === "GET" && url.pathname === "/api/samples") {
+      if (!requirePermission(currentRole, PERMISSIONS.SAMPLE_VIEW, res)) return;
+      return sendJson(res, 200, db.samples);
+    }
 
     if (req.method === "POST" && url.pathname === "/api/samples") {
+      if (!requirePermission(currentRole, PERMISSIONS.SAMPLE_CREATE, res)) return;
       const input = await body(req);
       if (!input.project || !input.borehole || !input.coreBox || !input.depth || !input.owner) {
         return sendJson(res, 400, { error: "样本基本信息填写不完整" });
@@ -2496,6 +2830,7 @@ const server = http.createServer(async (req, res) => {
 
     const addSlice = url.pathname.match(/^\/api\/samples\/([^/]+)\/slices$/);
     if (addSlice && req.method === "POST") {
+      if (!requirePermission(currentRole, PERMISSIONS.SAMPLE_APPEND_SLICE, res)) return;
       const sample = db.samples.find(item => item.id === addSlice[1]);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
       const input = await body(req);
@@ -2513,6 +2848,7 @@ const server = http.createServer(async (req, res) => {
 
     const batchSlice = url.pathname.match(/^\/api\/samples\/([^/]+)\/slices\/batch$/);
     if (batchSlice && req.method === "POST") {
+      if (!requirePermission(currentRole, PERMISSIONS.SAMPLE_APPEND_SLICE, res)) return;
       const sample = db.samples.find(item => item.id === batchSlice[1]);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
       const input = await body(req);
@@ -2543,11 +2879,30 @@ const server = http.createServer(async (req, res) => {
 
     const logMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/slices\/([^/]+)\/logs$/);
     if (logMatch && req.method === "POST") {
+      const input = await body(req);
+      const stepName = input.step || "";
+      const isObservationStep = stepName === "观察";
+      const isProductionStep = ["取样", "切割", "研磨", "染色"].includes(stepName);
+      let canLogThisStep = false;
+      if (roleHasPermission(currentRole, PERMISSIONS.STEP_ADVANCE)) {
+        canLogThisStep = true;
+      } else if (isObservationStep && roleHasPermission(currentRole, PERMISSIONS.OBSERVATION_CREATE)) {
+        canLogThisStep = true;
+      }
+      if (!canLogThisStep) {
+        const roleName = currentRole ? (ROLE_INFO[currentRole]?.name || currentRole) : "未登录";
+        if (isProductionStep) {
+          return sendJson(res, 403, { error: `权限不足：${roleName}无法推进制片步骤「${stepName}」，该操作仅限制片人员` });
+        } else if (isObservationStep) {
+          return sendJson(res, 403, { error: `权限不足：${roleName}无法操作观察步骤，该操作仅限观察人员` });
+        } else {
+          return sendJson(res, 403, { error: `权限不足：${roleName}无法操作「${stepName}」步骤` });
+        }
+      }
       const sample = db.samples.find(item => item.id === logMatch[1]);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
       const slice = sample.slices.find(item => item.id === logMatch[2]);
       if (!slice) return sendJson(res, 404, { error: "slice_not_found" });
-      const input = await body(req);
       slice.status = input.step;
       if (input.step === "观察") slice.observation = input.note || slice.observation;
       slice.logs.push({ at: new Date().toISOString(), step: input.step, note: input.note || "" });
@@ -2557,6 +2912,7 @@ const server = http.createServer(async (req, res) => {
     }
     const deliveryPreviewMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/delivery-preview$/);
     if (deliveryPreviewMatch && req.method === "GET") {
+      if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_PREVIEW, res)) return;
       const sample = db.samples.find(item => item.id === deliveryPreviewMatch[1]);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
       const slicesInfo = sample.slices.map(slice => {
@@ -2621,6 +2977,7 @@ const server = http.createServer(async (req, res) => {
 
     const createDeliveryMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/deliveries$/);
     if (createDeliveryMatch && req.method === "POST") {
+      if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_CREATE, res)) return;
       const sampleId = createDeliveryMatch[1];
       const sample = db.samples.find(item => item.id === sampleId);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
@@ -2687,6 +3044,7 @@ const server = http.createServer(async (req, res) => {
 
     const listDeliveriesMatch = url.pathname.match(/^\/api\/deliveries$/);
     if (listDeliveriesMatch && req.method === "GET") {
+      if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_VIEW, res)) return;
       const sampleFilter = url.searchParams.get("sampleId");
       let deliveries = db.deliveries;
       if (sampleFilter) {
@@ -2697,6 +3055,7 @@ const server = http.createServer(async (req, res) => {
 
     const deliveryDetailMatch = url.pathname.match(/^\/api\/deliveries\/([^/]+)$/);
     if (deliveryDetailMatch && req.method === "GET") {
+      if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_VIEW, res)) return;
       const delivery = db.deliveries.find(item => item.id === deliveryDetailMatch[1]);
       if (!delivery) return sendJson(res, 404, { error: "delivery_not_found" });
       return sendJson(res, 200, delivery);
@@ -2710,9 +3069,11 @@ const server = http.createServer(async (req, res) => {
       if (!slice) return sendJson(res, 404, { error: "slice_not_found" });
 
       if (req.method === "GET") {
+        if (!requirePermission(currentRole, PERMISSIONS.OBSERVATION_VIEW, res)) return;
         return sendJson(res, 200, slice.observations || []);
       }
       if (req.method === "POST") {
+        if (!requirePermission(currentRole, PERMISSIONS.OBSERVATION_CREATE, res)) return;
         if (slice.status !== "观察") {
           return sendJson(res, 400, { error: ["切片进入观察步骤后才能归档观察结果"] });
         }
@@ -2746,6 +3107,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/csv/preview") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
       const input = await body(req);
       const csvText = input.csvText || "";
       if (!csvText || typeof csvText !== "string") {
@@ -2781,6 +3143,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/csv/import") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
       const input = await body(req);
       const csvText = input.csvText || "";
       if (!csvText || typeof csvText !== "string") {
@@ -2883,6 +3246,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/stats/time-analysis") {
+      if (!requirePermission(currentRole, PERMISSIONS.STATS_VIEW, res)) return;
       const projectFilter = url.searchParams.get("project") || "";
       const ownerFilter = url.searchParams.get("owner") || "";
       let filtered = db.samples;
@@ -3249,6 +3613,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/methods") {
+      if (!requirePermission(currentRole, PERMISSIONS.METHOD_VIEW, res)) return;
       const sorted = sortMethods(db.methods);
       const withUsage = sorted.map(m => ({
         ...m,
@@ -3258,11 +3623,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/methods/active") {
+      if (!requirePermission(currentRole, PERMISSIONS.METHOD_VIEW, res)) return;
       const active = db.methods.filter(m => m.enabled);
       return sendJson(res, 200, sortMethods(active));
     }
 
     if (req.method === "POST" && url.pathname === "/api/methods") {
+      if (!requirePermission(currentRole, PERMISSIONS.METHOD_MANAGE, res)) return;
       const input = await body(req);
       const name = (input.name || "").trim();
       const description = (input.description || "").trim();
@@ -3289,6 +3656,7 @@ const server = http.createServer(async (req, res) => {
 
     const methodMatch = url.pathname.match(/^\/api\/methods\/([^/]+)$/);
     if (methodMatch && req.method === "PUT") {
+      if (!requirePermission(currentRole, PERMISSIONS.METHOD_MANAGE, res)) return;
       const methodId = methodMatch[1];
       const method = db.methods.find(m => m.id === methodId);
       if (!method) {
@@ -3335,6 +3703,7 @@ const server = http.createServer(async (req, res) => {
 
     const methodToggleMatch = url.pathname.match(/^\/api\/methods\/([^/]+)\/toggle$/);
     if (methodToggleMatch && req.method === "PATCH") {
+      if (!requirePermission(currentRole, PERMISSIONS.METHOD_MANAGE, res)) return;
       const methodId = methodToggleMatch[1];
       const method = db.methods.find(m => m.id === methodId);
       if (!method) {
