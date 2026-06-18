@@ -950,6 +950,15 @@ const page = `<!doctype html>
     const filterFields = ["project", "borehole", "corebox", "owner", "status", "delivery"];
     const deliveryFilterFields = ["project", "unit", "person"];
 
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
     function createSliceRow(initialId = "", initialMethod = "") {
       const row = document.createElement("div");
       row.className = "slice-row";
@@ -957,12 +966,12 @@ const page = `<!doctype html>
       const methodInDict = activeMethods.some(m => m.name === initialMethod);
       const useCustom = initialMethod !== "" && !methodInDict;
       const selectOptions = '<option value="">-- 选择染色方法 --</option>' +
-        activeMethods.map(m => '<option value="' + m.name + '"' + (m.name === initialMethod && !useCustom ? ' selected' : '') + '>' + m.name + '</option>').join("") +
+        activeMethods.map(m => '<option value="' + escapeHtml(m.name) + '"' + (m.name === initialMethod && !useCustom ? ' selected' : '') + '>' + escapeHtml(m.name) + '</option>').join("") +
         '<option value="__custom__"' + (useCustom ? ' selected' : '') + '>✏ 自定义输入...</option>';
-      row.innerHTML = '<input placeholder="切片编号，如 SL-001-A" value="' + initialId + '" data-slice-id>' +
+      row.innerHTML = '<input placeholder="切片编号，如 SL-001-A" value="' + escapeHtml(initialId) + '" data-slice-id>' +
         '<div class="slice-method-select-wrap" data-method-wrap>' +
           (useCustom
-            ? '<input placeholder="自定义染色方法" value="' + initialMethod + '" data-slice-method>'
+            ? '<input placeholder="自定义染色方法" value="' + escapeHtml(initialMethod) + '" data-slice-method>'
             : '<select data-slice-method>' + selectOptions + '</select>') +
           '<button type="button" class="slice-method-custom-toggle" data-toggle-method title="切换自定义/选择">↔</button>' +
         '</div>' +
@@ -972,10 +981,10 @@ const page = `<!doctype html>
       function rebuildMethodWidget(currentValue, forceCustom) {
         const shouldUseCustom = forceCustom || (currentValue === "__custom__");
         const newOptions = '<option value="">-- 选择染色方法 --</option>' +
-          methodDict.filter(m => m.enabled).map(m => '<option value="' + m.name + '"' + (m.name === currentValue && !shouldUseCustom ? ' selected' : '') + '>' + m.name + '</option>').join("") +
+          methodDict.filter(m => m.enabled).map(m => '<option value="' + escapeHtml(m.name) + '"' + (m.name === currentValue && !shouldUseCustom ? ' selected' : '') + '>' + escapeHtml(m.name) + '</option>').join("") +
           '<option value="__custom__"' + (shouldUseCustom ? ' selected' : '') + '>✏ 自定义输入...</option>';
         methodWrap.innerHTML = shouldUseCustom
-          ? '<input placeholder="自定义染色方法" value="' + (shouldUseCustom && currentValue !== "__custom__" ? currentValue : "") + '" data-slice-method>' +
+          ? '<input placeholder="自定义染色方法" value="' + escapeHtml(shouldUseCustom && currentValue !== "__custom__" ? currentValue : "") + '" data-slice-method>' +
             '<button type="button" class="slice-method-custom-toggle" data-toggle-method title="切换回工艺选择">↔</button>'
           : '<select data-slice-method>' + newOptions + '</select>' +
             '<button type="button" class="slice-method-custom-toggle" data-toggle-method title="切换自定义/选择">↔</button>';
@@ -1713,13 +1722,13 @@ const page = `<!doctype html>
               const badgeClass = m.enabled ? "enabled" : "disabled";
               const badgeText = m.enabled ? "启用中" : "已禁用";
               const itemClass = m.enabled ? "" : "disabled";
-              return '<div class="method-item ' + itemClass + '" data-method-id="' + m.id + '">' +
+              return '<div class="method-item ' + itemClass + '" data-method-id="' + escapeHtml(m.id) + '">' +
                 '<div class="method-item-main">' +
                   '<div class="method-name-row">' +
-                    '<span class="method-name">' + m.name + '</span>' +
+                    '<span class="method-name">' + escapeHtml(m.name) + '</span>' +
                     '<span class="method-badge ' + badgeClass + '">' + badgeText + '</span>' +
                   '</div>' +
-                  (m.description ? '<div class="method-desc">' + m.description + '</div>' : '') +
+                  (m.description ? '<div class="method-desc">' + escapeHtml(m.description) + '</div>' : '') +
                   '<div class="method-meta">' +
                     '使用次数：<b>' + (m.usageCount || 0) + '</b> 次' +
                     (m.createdAt ? ' · 创建于 ' + formatObsDate(m.createdAt) : '') +
@@ -1727,8 +1736,8 @@ const page = `<!doctype html>
                   '</div>' +
                 '</div>' +
                 '<div class="method-actions">' +
-                  '<button type="button" class="secondary" data-method-edit="' + m.id + '">编辑</button>' +
-                  '<button type="button" data-method-toggle="' + m.id + '">' + (m.enabled ? '禁用' : '启用') + '</button>' +
+                  '<button type="button" class="secondary" data-method-edit="' + escapeHtml(m.id) + '">编辑</button>' +
+                  '<button type="button" data-method-toggle="' + escapeHtml(m.id) + '">' + (m.enabled ? '禁用' : '启用') + '</button>' +
                 '</div>' +
               '</div>';
             }).join("") + '</div>'
@@ -1805,11 +1814,11 @@ const page = `<!doctype html>
         '<div class="method-form-grid" style="margin-top:12px;">' +
           '<div class="full">' +
             '<label>工艺名称 *</label>' +
-            '<input id="mf-name" placeholder="如：普通薄片、茜素红染色" value="' + (isEdit ? editingMethod.name : "") + '">' +
+            '<input id="mf-name" placeholder="如：普通薄片、茜素红染色" value="' + escapeHtml(isEdit ? editingMethod.name : "") + '">' +
           '</div>' +
           '<div class="full">' +
             '<label>工艺说明</label>' +
-            '<textarea id="mf-desc" placeholder="简要描述该工艺的用途和特点">' + (isEdit ? (editingMethod.description || "") : "") + '</textarea>' +
+            '<textarea id="mf-desc" placeholder="简要描述该工艺的用途和特点">' + escapeHtml(isEdit ? (editingMethod.description || "") : "") + '</textarea>' +
           '</div>' +
           '<div>' +
             '<label>排序优先级（数字越小越靠前）</label>' +
