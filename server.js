@@ -508,7 +508,7 @@ function describeDiff(beforeSample, afterSample, action) {
   return parts.join("；");
 }
 
-function recordAudit(db, { sampleId, action, operator, sourceApi, beforeSample, afterSample, note }) {
+function recordAudit(db, { sampleId, action, operator, sourceApi, beforeSample, afterSample, note, deliverySnapshot }) {
   const entry = {
     id: `AUD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
     sampleId,
@@ -523,6 +523,7 @@ function recordAudit(db, { sampleId, action, operator, sourceApi, beforeSample, 
     afterSummary: afterSample ? sampleSummary(afterSample) : null,
     snapshot: afterSample ? createSampleSnapshot(afterSample) : null
   };
+  if (deliverySnapshot) entry.deliverySnapshot = JSON.parse(JSON.stringify(deliverySnapshot));
   db.auditLog.unshift(entry);
   return entry;
 }
@@ -2701,6 +2702,7 @@ const page = `<!doctype html>
         const params = new URLSearchParams();
         if (filters.sampleId) params.set("sampleId", filters.sampleId);
         if (filters.action) params.set("action", filters.action);
+        if (filters.operator) params.set("operator", filters.operator);
         const queryStr = params.toString() ? "?" + params.toString() : "";
         const data = await api("/api/audit" + queryStr);
         auditLog = data.logs || [];
@@ -2719,8 +2721,10 @@ const page = `<!doctype html>
       const f = {};
       const sampleEl = document.querySelector("#audit-filter-sample");
       const actionEl = document.querySelector("#audit-filter-action");
+      const operatorEl = document.querySelector("#audit-filter-operator");
       if (sampleEl && sampleEl.value) f.sampleId = sampleEl.value;
       if (actionEl && actionEl.value) f.action = actionEl.value;
+      if (operatorEl && operatorEl.value) f.operator = operatorEl.value;
       return f;
     }
 
@@ -2728,6 +2732,7 @@ const page = `<!doctype html>
       return list.filter(item => {
         if (filters.sampleId && item.sampleId !== filters.sampleId) return false;
         if (filters.action && item.action !== filters.action) return false;
+        if (filters.operator && item.operator !== filters.operator) return false;
         return true;
       });
     }
@@ -2735,6 +2740,7 @@ const page = `<!doctype html>
     function populateAuditFilterOptions(data) {
       const sampleSel = document.querySelector("#audit-filter-sample");
       const actionSel = document.querySelector("#audit-filter-action");
+      const operatorSel = document.querySelector("#audit-filter-operator");
       if (sampleSel && data.sampleIds) {
         const current = sampleSel.value;
         sampleSel.innerHTML = '<option value="">全部样本</option>' +
@@ -2756,6 +2762,12 @@ const page = `<!doctype html>
         actionSel.innerHTML = '<option value="">全部操作</option>' +
           data.actions.map(act => '<option value="' + escapeHtml(act) + '">' + escapeHtml(actionLabels[act] || act) + '</option>').join("");
         actionSel.value = current;
+      }
+      if (operatorSel && data.operators) {
+        const current = operatorSel.value;
+        operatorSel.innerHTML = '<option value="">全部操作者</option>' +
+          data.operators.map(op => '<option value="' + escapeHtml(op) + '">' + escapeHtml(ROLE_INFO[op]?.name || op) + '</option>').join("");
+        operatorSel.value = current;
       }
     }
 
@@ -2986,7 +2998,7 @@ const page = `<!doctype html>
             body: JSON.stringify({ auditId })
           });
           mask.remove();
-          alert("回滚成功！\n" + (result.note || ""));
+          alert("回滚成功！\\n" + (result.note || ""));
           await Promise.all([
             load(),
             loadAndRenderAudit()
@@ -3626,7 +3638,7 @@ const server = http.createServer(async (req, res) => {
       db.deliveries.unshift(delivery);
       sample.delivery = "已交付";
       updateSampleStatus(sample);
-      recordAudit(db, { sampleId: sample.id, action: "delivery:confirm", operator: currentRole, sourceApi: "POST /api/samples/:id/deliveries", beforeSample, afterSample: sample });
+      recordAudit(db, { sampleId: sample.id, action: "delivery:confirm", operator: currentRole, sourceApi: "POST /api/samples/:id/deliveries", beforeSample, afterSample: sample, deliverySnapshot: delivery });
       await saveDb(db);
       return sendJson(res, 201, delivery);
     }
@@ -4312,15 +4324,18 @@ const server = http.createServer(async (req, res) => {
       if (!requirePermission(currentRole, PERMISSIONS.AUDIT_VIEW, res)) return;
       const sampleId = url.searchParams.get("sampleId") || "";
       const action = url.searchParams.get("action") || "";
+      const operator = url.searchParams.get("operator") || "";
       const limit = Math.min(Number(url.searchParams.get("limit")) || 100, 500);
       let logs = db.auditLog;
       if (sampleId) logs = logs.filter(e => e.sampleId === sampleId);
       if (action) logs = logs.filter(e => e.action === action);
+      if (operator) logs = logs.filter(e => e.operator === operator);
       const total = logs.length;
       logs = logs.slice(0, limit);
       const sampleIds = [...new Set(db.auditLog.map(e => e.sampleId))].sort();
       const actions = [...new Set(db.auditLog.map(e => e.action))].sort();
-      return sendJson(res, 200, { logs, total, sampleIds, actions });
+      const operators = [...new Set(db.auditLog.map(e => e.operator))].filter(Boolean).sort();
+      return sendJson(res, 200, { logs, total, sampleIds, actions, operators });
     }
 
     const rollbackMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/rollback$/);
@@ -4344,13 +4359,35 @@ const server = http.createServer(async (req, res) => {
       const sampleIdx = db.samples.findIndex(s => s.id === sampleId);
       if (sampleIdx >= 0) db.samples[sampleIdx] = restoredSample;
       const removedDeliveries = [];
+      const restoredDeliveries = [];
       if (wasDelivered && !willBeDelivered) {
         const toRemove = db.deliveries.filter(d => d.sampleId === sampleId);
         removedDeliveries.push(...toRemove.map(d => d.id));
         db.deliveries = db.deliveries.filter(d => d.sampleId !== sampleId);
       }
-      const rollbackNote = `回滚到审计记录 ${auditId}（${auditEntry.actionLabel || auditEntry.action}，${auditEntry.timestamp}）` +
-        (removedDeliveries.length ? `；已删除交付记录：${removedDeliveries.join("、")}` : "");
+      if (willBeDelivered) {
+        const deliverySnapshots = db.auditLog
+          .filter(e => e.sampleId === sampleId && e.action === "delivery:confirm" && e.deliverySnapshot)
+          .map(e => e.deliverySnapshot);
+        const currentDeliveryIds = new Set(db.deliveries.filter(d => d.sampleId === sampleId).map(d => d.id));
+        for (const ds of deliverySnapshots) {
+          if (!currentDeliveryIds.has(ds.id)) {
+            db.deliveries.unshift(JSON.parse(JSON.stringify(ds)));
+            restoredDeliveries.push(ds.id);
+            currentDeliveryIds.add(ds.id);
+          }
+        }
+        if (!wasDelivered && willBeDelivered && !restoredDeliveries.length) {
+          const latestConfirm = db.auditLog.find(e => e.sampleId === sampleId && e.action === "delivery:confirm" && e.deliverySnapshot);
+          if (latestConfirm) {
+            db.deliveries.unshift(JSON.parse(JSON.stringify(latestConfirm.deliverySnapshot)));
+            restoredDeliveries.push(latestConfirm.deliverySnapshot.id);
+          }
+        }
+      }
+      const rollbackNoteParts = [`回滚到审计记录 ${auditId}（${auditEntry.actionLabel || auditEntry.action}，${auditEntry.timestamp}）`];
+      if (removedDeliveries.length) rollbackNoteParts.push(`已删除交付记录：${removedDeliveries.join("、")}`);
+      if (restoredDeliveries.length) rollbackNoteParts.push(`已恢复交付记录：${restoredDeliveries.join("、")}`);
       recordAudit(db, {
         sampleId,
         action: "sample:rollback",
@@ -4358,14 +4395,15 @@ const server = http.createServer(async (req, res) => {
         sourceApi: "POST /api/samples/:id/rollback",
         beforeSample: beforeRollback,
         afterSample: restoredSample,
-        note: rollbackNote
+        note: rollbackNoteParts.join("；")
       });
       await saveDb(db);
       return sendJson(res, 200, {
         sample: restoredSample,
         rollbackTo: auditId,
         removedDeliveries,
-        note: rollbackNote
+        restoredDeliveries,
+        note: rollbackNoteParts.join("；")
       });
     }
 
