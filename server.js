@@ -51,6 +51,7 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.SAMPLE_VIEW,
     PERMISSIONS.CSV_IMPORT,
     PERMISSIONS.STATS_VIEW,
+    PERMISSIONS.METHOD_MANAGE,
     PERMISSIONS.METHOD_VIEW,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.AUDIT_ROLLBACK
@@ -110,11 +111,11 @@ function getRoleFromRequest(req) {
 }
 
 const defaultMethods = [
-  { id: "M-001", name: "普通薄片", description: "标准岩矿薄片制片，厚度0.03mm", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 1 },
-  { id: "M-002", name: "茜素红染色", description: "碳酸盐矿物染色，区分方解石/白云石", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 2 },
-  { id: "M-003", name: "光片", description: "不透明矿物光片制片，用于反光显微镜观察", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 3 },
-  { id: "M-004", name: "油浸薄片", description: "油浸法制备薄片，用于精确测定矿物折射率", enabled: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 4 },
-  { id: "M-005", name: "电子探针片", description: "电子探针显微分析用样品片", enabled: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 5 }
+  { id: "M-001", name: "普通薄片", description: "标准岩矿薄片制片，厚度0.03mm", enabled: true, isDefault: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 1 },
+  { id: "M-002", name: "茜素红染色", description: "碳酸盐矿物染色，区分方解石/白云石", enabled: true, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 2 },
+  { id: "M-003", name: "光片", description: "不透明矿物光片制片，用于反光显微镜观察", enabled: true, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 3 },
+  { id: "M-004", name: "油浸薄片", description: "油浸法制备薄片，用于精确测定矿物折射率", enabled: true, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 4 },
+  { id: "M-005", name: "电子探针片", description: "电子探针显微分析用样品片", enabled: false, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 5 }
 ];
 
 const seed = {
@@ -391,6 +392,23 @@ async function loadDb() {
       }
     });
   });
+
+  db.methods.forEach(m => {
+    if (m.isDefault === undefined) {
+      m.isDefault = false;
+      needSave = true;
+    }
+  });
+
+  const hasDefault = db.methods.some(m => m.isDefault && m.enabled);
+  if (!hasDefault) {
+    const sorted = sortMethods(db.methods.filter(m => m.enabled));
+    if (sorted.length > 0) {
+      sorted[0].isDefault = true;
+      needSave = true;
+    }
+  }
+
   let nextSort = db.methods.length > 0 ? Math.max(...db.methods.map(m => m.sortOrder || 0)) + 1 : 1;
   usedMethodNames.forEach(name => {
     if (!existingMethodNames.has(name)) {
@@ -399,6 +417,7 @@ async function loadDb() {
         name: name,
         description: "从历史数据自动导入",
         enabled: true,
+        isDefault: false,
         createdAt: new Date().toISOString(),
         sortOrder: nextSort++
       });
@@ -409,6 +428,36 @@ async function loadDb() {
   return db;
 }
 async function saveDb(db) { await writeFile(dbPath, JSON.stringify(db, null, 2)); }
+
+function sortMethods(methods) {
+  return [...methods].sort((a, b) => {
+    const sa = a.sortOrder || 0;
+    const sb = b.sortOrder || 0;
+    if (sa !== sb) return sa - sb;
+    return (a.name || "").localeCompare(b.name || "", "zh");
+  });
+}
+
+function setDefaultMethod(db, methodId) {
+  const method = db.methods.find(m => m.id === methodId);
+  if (!method || !method.enabled) return false;
+  db.methods.forEach(m => { m.isDefault = false; });
+  method.isDefault = true;
+  return true;
+}
+
+function ensureDefaultMethod(db) {
+  const hasDefault = db.methods.some(m => m.isDefault && m.enabled);
+  if (!hasDefault) {
+    const sorted = sortMethods(db.methods.filter(m => m.enabled));
+    if (sorted.length > 0) {
+      sorted[0].isDefault = true;
+      return sorted[0];
+    }
+  }
+  return null;
+}
+
 async function body(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -989,6 +1038,7 @@ const page = `<!doctype html>
     .method-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .method-badge.enabled { background: #edf5e8; color: var(--accent); }
     .method-badge.disabled { background: #eef1ea; color: var(--muted); }
+    .method-badge.default { background: linear-gradient(135deg, #ffd700, #ffb347); color: #fff; box-shadow: 0 1px 3px rgba(255, 179, 71, 0.4); }
     .method-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .method-form-grid .full { grid-column: 1 / -1; }
     .slice-method-select-wrap { position: relative; }
@@ -1356,7 +1406,7 @@ const page = `<!doctype html>
       const workbenchAdvanceBtns = document.querySelectorAll("[data-workbench-advance]");
       const workbenchLogBtns = document.querySelectorAll("[data-workbench-log]");
       const workbenchObsBtns = document.querySelectorAll("[data-workbench-obs]");
-      const methodActions = document.querySelectorAll("[data-method-edit], [data-method-toggle]");
+      const methodActions = document.querySelectorAll("[data-method-edit], [data-method-toggle], [data-method-default]");
       const methodAddBtn = document.querySelector("#method-add-btn");
       const roleInfoContainer = document.querySelector("#role-info-container");
       const noRoleWarn = document.querySelector("#no-role-warn");
@@ -1526,10 +1576,15 @@ const page = `<!doctype html>
       const row = document.createElement("div");
       row.className = "slice-row";
       const activeMethods = methodDict.filter(m => m.enabled);
+      const defaultMethod = activeMethods.find(m => m.isDefault);
       const methodInDict = activeMethods.some(m => m.name === initialMethod);
       const useCustom = initialMethod !== "" && !methodInDict;
+      let selectedMethod = initialMethod;
+      if (selectedMethod === "" && defaultMethod) {
+        selectedMethod = defaultMethod.name;
+      }
       const selectOptions = '<option value="">-- 选择染色方法 --</option>' +
-        activeMethods.map(m => '<option value="' + escapeHtml(m.name) + '"' + (m.name === initialMethod && !useCustom ? ' selected' : '') + '>' + escapeHtml(m.name) + '</option>').join("") +
+        activeMethods.map(m => '<option value="' + escapeHtml(m.name) + '"' + (m.name === selectedMethod && !useCustom ? ' selected' : '') + '>' + escapeHtml(m.name) + (m.isDefault ? ' (默认)' : '') + '</option>').join("") +
         '<option value="__custom__"' + (useCustom ? ' selected' : '') + '>✏ 自定义输入...</option>';
       row.innerHTML = '<input placeholder="切片编号，如 SL-001-A" value="' + escapeHtml(initialId) + '" data-slice-id>' +
         '<div class="slice-method-select-wrap" data-method-wrap>' +
@@ -1544,7 +1599,7 @@ const page = `<!doctype html>
       function rebuildMethodWidget(currentValue, forceCustom) {
         const shouldUseCustom = forceCustom || (currentValue === "__custom__");
         const newOptions = '<option value="">-- 选择染色方法 --</option>' +
-          methodDict.filter(m => m.enabled).map(m => '<option value="' + escapeHtml(m.name) + '"' + (m.name === currentValue && !shouldUseCustom ? ' selected' : '') + '>' + escapeHtml(m.name) + '</option>').join("") +
+          methodDict.filter(m => m.enabled).map(m => '<option value="' + escapeHtml(m.name) + '"' + (m.name === currentValue && !shouldUseCustom ? ' selected' : '') + '>' + escapeHtml(m.name) + (m.isDefault ? ' (默认)' : '') + '</option>').join("") +
           '<option value="__custom__"' + (shouldUseCustom ? ' selected' : '') + '>✏ 自定义输入...</option>';
         methodWrap.innerHTML = shouldUseCustom
           ? '<input placeholder="自定义染色方法" value="' + escapeHtml(shouldUseCustom && currentValue !== "__custom__" ? currentValue : "") + '" data-slice-method>' +
@@ -2304,10 +2359,14 @@ const page = `<!doctype html>
               const badgeClass = m.enabled ? "enabled" : "disabled";
               const badgeText = m.enabled ? "启用中" : "已禁用";
               const itemClass = m.enabled ? "" : "disabled";
+              const defaultBadge = m.isDefault && m.enabled ? '<span class="method-badge default">★ 默认</span>' : '';
+              const defaultBtnText = m.isDefault ? '取消默认' : '设为默认';
+              const defaultBtnClass = m.isDefault ? 'secondary' : '';
               return '<div class="method-item ' + itemClass + '" data-method-id="' + escapeHtml(m.id) + '">' +
                 '<div class="method-item-main">' +
                   '<div class="method-name-row">' +
                     '<span class="method-name">' + escapeHtml(m.name) + '</span>' +
+                    defaultBadge +
                     '<span class="method-badge ' + badgeClass + '">' + badgeText + '</span>' +
                   '</div>' +
                   (m.description ? '<div class="method-desc">' + escapeHtml(m.description) + '</div>' : '') +
@@ -2319,6 +2378,7 @@ const page = `<!doctype html>
                 '</div>' +
                 '<div class="method-actions">' +
                   '<button type="button" class="secondary" data-method-edit="' + escapeHtml(m.id) + '">编辑</button>' +
+                  (m.enabled ? '<button type="button" ' + defaultBtnClass + ' data-method-default="' + escapeHtml(m.id) + '">' + defaultBtnText + '</button>' : '') +
                   '<button type="button" data-method-toggle="' + escapeHtml(m.id) + '">' + (m.enabled ? '禁用' : '启用') + '</button>' +
                 '</div>' +
               '</div>';
@@ -2354,6 +2414,31 @@ const page = `<!doctype html>
             if (method) openMethodFormModal(modal, mask, method);
           };
         });
+        modal.querySelectorAll("[data-method-default]").forEach(btn => {
+          btn.onclick = async () => {
+            const id = btn.dataset.methodDefault;
+            try {
+              const method = methods.find(m => m.id === id);
+              if (!method) return;
+              if (method.isDefault) {
+                if (!confirm('确认要取消「' + method.name + '」的默认工艺状态吗？')) {
+                  return;
+                }
+              } else {
+                if (!confirm('确认要将「' + method.name + '」设为默认工艺吗？\\n新建样本和批量追加切片时将默认选中此工艺。')) {
+                  return;
+                }
+              }
+              await api("/api/methods/" + id + "/default", { method: "PATCH" });
+              await loadMethodDict();
+              renderMethodConfigContent(modal, mask);
+            } catch (err) {
+              const alertEl = modal.querySelector("#method-alert");
+              showAlert(alertEl, [err.message || "操作失败"]);
+            }
+          };
+        });
+
         modal.querySelectorAll("[data-method-toggle]").forEach(btn => {
           btn.onclick = async () => {
             const id = btn.dataset.methodToggle;
@@ -2363,13 +2448,21 @@ const page = `<!doctype html>
               const action = method.enabled ? "禁用" : "启用";
               const usage = method.usageCount || 0;
               if (method.enabled && usage > 0) {
-                if (!confirm('确认要禁用工艺「' + method.name + '」吗？\\n该工艺已被使用 ' + usage + ' 次，禁用后不会影响历史切片记录，但在新增切片时将不再显示此选项。')) {
+                if (!confirm('确认要禁用工艺「' + method.name + '」吗？\\n该工艺已被使用 ' + usage + ' 次，禁用后不会影响历史切片记录，但在新增切片时将不再显示此选项。' + (method.isDefault ? '\\n注意：这是当前默认工艺，禁用后将自动切换到排序第一的启用工艺。' : ''))) {
+                  return;
+                }
+              } else if (method.enabled && method.isDefault) {
+                if (!confirm('确认要禁用默认工艺「' + method.name + '」吗？\\n禁用后将自动切换到排序第一的启用工艺。')) {
                   return;
                 }
               }
-              await api("/api/methods/" + id + "/toggle", { method: "PATCH" });
+              const result = await api("/api/methods/" + id + "/toggle", { method: "PATCH" });
               await loadMethodDict();
               renderMethodConfigContent(modal, mask);
+              if (result && result.newDefaultMethod) {
+                const alertEl = modal.querySelector("#method-alert");
+                showAlert(alertEl, ["默认工艺已自动切换为「" + result.newDefaultMethod.name + "」"], "success");
+              }
             } catch (err) {
               const alertEl = modal.querySelector("#method-alert");
               showAlert(alertEl, [err.message || "操作失败"]);
@@ -4259,15 +4352,6 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    function sortMethods(methods) {
-      return [...methods].sort((a, b) => {
-        const sa = a.sortOrder || 0;
-        const sb = b.sortOrder || 0;
-        if (sa !== sb) return sa - sb;
-        return (a.name || "").localeCompare(b.name || "", "zh");
-      });
-    }
-
     function countMethodUsage(db, methodName) {
       let count = 0;
       db.samples.forEach(sample => {
@@ -4312,17 +4396,32 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: "工艺名称已存在" });
       }
       const maxSort = db.methods.length > 0 ? Math.max(...db.methods.map(m => m.sortOrder || 0)) : 0;
+      const hasEnabledMethods = db.methods.some(m => m.enabled);
       const method = {
         id: "M-" + Date.now(),
         name,
         description,
         enabled: true,
+        isDefault: !hasEnabledMethods,
         createdAt: new Date().toISOString(),
         sortOrder: maxSort + 1
       };
       db.methods.push(method);
       await saveDb(db);
       return sendJson(res, 201, { ...method, usageCount: 0 });
+    }
+
+    const methodSetDefaultMatch = url.pathname.match(/^\/api\/methods\/([^/]+)\/default$/);
+    if (methodSetDefaultMatch && req.method === "PATCH") {
+      if (!requirePermission(currentRole, PERMISSIONS.METHOD_MANAGE, res)) return;
+      const methodId = methodSetDefaultMatch[1];
+      const success = setDefaultMethod(db, methodId);
+      if (!success) {
+        return sendJson(res, 400, { error: "无法设置为默认工艺，请确保工艺已启用" });
+      }
+      await saveDb(db);
+      const method = db.methods.find(m => m.id === methodId);
+      return sendJson(res, 200, { ...method, usageCount: countMethodUsage(db, method.name) });
     }
 
     const methodMatch = url.pathname.match(/^\/api\/methods\/([^/]+)$/);
@@ -4380,9 +4479,20 @@ const server = http.createServer(async (req, res) => {
       if (!method) {
         return sendJson(res, 404, { error: "method_not_found" });
       }
+      const wasDefault = method.isDefault;
+      const wasEnabled = method.enabled;
       method.enabled = !method.enabled;
+      let newDefaultMethod = null;
+      if (wasEnabled && wasDefault) {
+        method.isDefault = false;
+        newDefaultMethod = ensureDefaultMethod(db);
+      }
       await saveDb(db);
-      return sendJson(res, 200, { ...method, usageCount: countMethodUsage(db, method.name) });
+      return sendJson(res, 200, {
+        ...method,
+        usageCount: countMethodUsage(db, method.name),
+        newDefaultMethod: newDefaultMethod ? { id: newDefaultMethod.id, name: newDefaultMethod.name } : null
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/api/audit") {
