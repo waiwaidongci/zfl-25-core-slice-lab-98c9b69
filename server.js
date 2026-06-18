@@ -790,6 +790,11 @@ const page = `<!doctype html>
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:12px; } .card { display:grid; gap:8px; }
     .meta { color:var(--muted); font-size:13px; } .pill { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; }
     .slice { border-top:1px solid var(--line); padding-top:10px; } .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .next-hint { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; margin-top:4px; font-weight:600; }
+    .next-hint-producer { background:#e8f0e0; color:#4a6b3a; border:1px solid #c6dcb8; }
+    .next-hint-observer { background:#e0ecf5; color:#3a5a7b; border:1px solid #b8d0e8; }
+    .next-hint-deliverer { background:#f5efe0; color:#7b6a3a; border:1px solid #e8d8b8; }
+    .next-hint-done { background:#edf5e8; color:var(--accent); border:1px solid #c6dcb8; }
     .filter-panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:14px; }
     .filter-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
     .filter-row label { margin:0 0 4px; }
@@ -1793,6 +1798,23 @@ const page = `<!doctype html>
       return null;
     }
 
+    function getNextStepHint(sliceStatus, hasObservation, deliveryStatus) {
+      if (deliveryStatus === "已交付") return { text: "✓ 已完成交付", cls: "next-hint next-hint-done" };
+      if (sliceStatus === "观察") {
+        if (hasObservation) {
+          const canDeliver = roleHasPerm(PERMISSIONS.DELIVERY_CREATE);
+          return { text: "下一步：交付人员处理交付" + (!canDeliver && currentRole ? "（当前角色无权操作）" : ""), cls: "next-hint next-hint-deliverer" };
+        }
+        const canObserve = roleHasPerm(PERMISSIONS.OBSERVATION_CREATE);
+        return { text: "下一步：观察人员填写观察结果" + (!canObserve && currentRole ? "（当前角色无权操作）" : ""), cls: "next-hint next-hint-observer" };
+      }
+      if (["取样", "切割", "研磨", "染色"].includes(sliceStatus)) {
+        const canAdvance = roleHasPerm(PERMISSIONS.STEP_ADVANCE);
+        return { text: "下一步：制片人员推进工序" + (!canAdvance && currentRole ? "（当前角色无权操作）" : ""), cls: "next-hint next-hint-producer" };
+      }
+      return { text: "", cls: "" };
+    }
+
     function renderWorkbench() {
       try {
         workbenchError = null;
@@ -1826,12 +1848,17 @@ const page = `<!doctype html>
             const lastNote = lastLog && lastLog.note ? lastLog.note : "";
             const nextStep = getNextStep(step);
             const canObserve = slice.status === "观察";
+            const sliceObs = slice.observations || [];
+            const sliceLegacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
+            const wbNextHint = getNextStepHint(slice.status, sliceObs.length > 0 || sliceLegacyObs.length > 0, sample.delivery || "");
+            const wbNextHintHtml = wbNextHint.text ? '<div class="' + wbNextHint.cls + '">' + wbNextHint.text + '</div>' : '';
 
             return '<div class="workbench-card" data-workbench-card="' + sampleId + '|' + sliceId + '">' +
               '<div class="workbench-card-id">' + sliceId + '</div>' +
               '<div class="workbench-card-meta">' + method + '</div>' +
               '<div class="workbench-card-meta">' + borehole + ' · ' + coreBox + ' · ' + depth + '</div>' +
               '<div class="workbench-card-project">' + project + ' · ' + owner + '</div>' +
+              wbNextHintHtml +
               (lastNote ? '<div class="workbench-card-meta" style="margin-top:4px;color:var(--stone);font-style:italic;">' + lastNote + '</div>' : '') +
               '<div class="workbench-card-actions" style="display:none;" data-workbench-actions="' + sampleId + '|' + sliceId + '">' +
                 '<textarea data-workbench-note="' + sampleId + '|' + sliceId + '" placeholder="步骤备注..."></textarea>' +
@@ -2043,7 +2070,9 @@ const page = `<!doctype html>
             obsSummaryHtml = '<div class="obs-summary" style="margin-top:10px;"><div class="obs-header"><span class="label">观察结果</span></div><div class="obs-row">' + legacyObs + '</div></div>';
           }
           const obsBtn = slice.status === '观察' ? '<button type="button" class="secondary obs-btn" data-observation="'+sample.id+'|'+slice.id+'">📝 填写观察结果</button>' : '';
-          return '<div class="slice"><b>'+slice.id+'</b><div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div><select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button>' + obsBtn + obsSummaryHtml + '<div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>';
+          const nextHint = getNextStepHint(slice.status, observations.length > 0 || legacyObs.length > 0, sample.delivery);
+          const nextHintHtml = nextHint.text ? '<div class="'+nextHint.cls+'">'+nextHint.text+'</div>' : '';
+          return '<div class="slice"><b>'+slice.id+'</b><div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div>'+nextHintHtml+'<select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button>' + obsBtn + obsSummaryHtml + '<div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>';
         }).join("")+'<button data-deliver="'+sample.id+'">标记交付</button></article>';
       }).join("");
       document.querySelectorAll("[data-step]").forEach(sel => {
