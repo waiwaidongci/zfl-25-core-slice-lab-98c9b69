@@ -1,128 +1,6 @@
 {
   "samples": [
     {
-      "id": "CORE-1781760246914",
-      "project": "测试项目",
-      "borehole": "ZK-001",
-      "coreBox": "BX-001",
-      "depth": "100-101m",
-      "owner": "测试",
-      "status": "制片中",
-      "delivery": "未交付",
-      "slices": [
-        {
-          "id": "SL-999-Z",
-          "method": "普通薄片",
-          "observation": "",
-          "observations": [],
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-18T05:24:06.914Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "CORE-1781682377671",
-      "project": "测试项目批量",
-      "borehole": "ZK-TEST-890",
-      "coreBox": "BX-TEST-890",
-      "depth": "100.0-100.5m",
-      "owner": "测试员",
-      "status": "制片中",
-      "delivery": "未交付",
-      "slices": [
-        {
-          "id": "SL-890-A",
-          "method": "普通薄片",
-          "observation": "",
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-17T07:46:17.672Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            }
-          ],
-          "observations": []
-        },
-        {
-          "id": "SL-890-B",
-          "method": "茜素红染色",
-          "observation": "",
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-17T07:46:17.672Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            }
-          ],
-          "observations": []
-        },
-        {
-          "id": "SL-890-C",
-          "method": "光片",
-          "observation": "",
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-17T07:46:17.672Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            }
-          ],
-          "observations": []
-        },
-        {
-          "id": "SL-890-F",
-          "method": "普通薄片",
-          "observation": "",
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-17T07:46:17.700Z",
-              "step": "取样",
-              "note": "批量追加切片任务"
-            }
-          ],
-          "observations": []
-        },
-        {
-          "id": "SL-890-G",
-          "method": "茜素红染色",
-          "observation": "",
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-17T07:46:17.700Z",
-              "step": "取样",
-              "note": "批量追加切片任务"
-            }
-          ],
-          "observations": []
-        },
-        {
-          "id": "SL-890-H",
-          "method": "光片",
-          "observation": "",
-          "status": "取样",
-          "logs": [
-            {
-              "at": "2026-06-17T07:46:17.700Z",
-              "step": "取样",
-              "note": "批量追加切片任务"
-            }
-          ],
-          "observations": []
-        }
-      ]
-    },
-    {
       "id": "CORE-001",
       "project": "东岭铜矿薄片",
       "borehole": "ZK-17",
@@ -147,16 +25,6 @@
               "at": "2026-06-13T11:20:00.000Z",
               "step": "切割",
               "note": "完成粗切"
-            },
-            {
-              "at": "2026-06-18T05:24:51.040Z",
-              "step": "研磨",
-              "note": "测试推进"
-            },
-            {
-              "at": "2026-06-18T05:27:31.148Z",
-              "step": "染色",
-              "note": "制片人员推进"
             }
           ],
           "observations": []
@@ -202,7 +70,7 @@
         {
           "id": "SL-003-A",
           "method": "茜素红染色",
-          "observation": "观察步骤测试",
+          "observation": "",
           "status": "观察",
           "logs": [
             {
@@ -224,39 +92,9 @@
               "at": "2026-06-13T16:00:00.000Z",
               "step": "染色",
               "note": "茜素红+铁氰化钾"
-            },
-            {
-              "at": "2026-06-18T05:24:51.048Z",
-              "step": "观察",
-              "note": "观察步骤测试"
             }
           ],
-          "observations": [
-            {
-              "id": "OBS-1781685423409",
-              "at": "2026-06-17T08:37:03.409Z",
-              "lithology": "矽卡岩化灰岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "晶粒结构，条带状构造",
-              "remark": "黄铜矿呈他形粒状沿条带分布，粒径0.05-0.2mm"
-            },
-            {
-              "id": "OBS-1781685496589",
-              "at": "2026-06-17T08:38:16.589Z",
-              "lithology": "",
-              "minerals": "",
-              "texture": "",
-              "remark": "二次复查：矿化程度增强，建议取样化验"
-            },
-            {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-            }
-          ]
+          "observations": []
         }
       ]
     },
@@ -421,7 +259,7 @@
         {
           "id": "SL-008-A",
           "method": "茜素红染色",
-          "observation": "中细粒砂岩；石英70%+长石20%+其他10%",
+          "observation": "",
           "status": "观察",
           "logs": [
             {
@@ -445,16 +283,7 @@
               "note": ""
             }
           ],
-          "observations": [
-            {
-              "id": "OBS-1781760451269",
-              "at": "2026-06-18T05:27:31.269Z",
-              "lithology": "中细粒砂岩",
-              "minerals": "石英70%+长石20%+其他10%",
-              "texture": "",
-              "remark": ""
-            }
-          ]
+          "observations": []
         }
       ]
     },
@@ -537,31 +366,6 @@
     }
   ],
   "deliveries": [
-    {
-      "id": "DLV-1781760246927",
-      "sampleId": "CORE-004",
-      "deliveredAt": "2026-06-18T05:24:06.927Z",
-      "deliveredBy": "测试",
-      "receivingUnit": "测试单位",
-      "remark": "",
-      "slices": [
-        {
-          "id": "SL-004-A",
-          "method": "光片",
-          "status": "观察",
-          "hasObservation": true,
-          "observationId": null
-        }
-      ],
-      "sampleSnapshot": {
-        "id": "CORE-004",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-05",
-        "coreBox": "BX-12",
-        "depth": "245.2-245.6m",
-        "owner": "陈明"
-      }
-    },
     {
       "id": "DLV-001",
       "sampleId": "CORE-004",
@@ -653,14 +457,6 @@
       "enabled": false,
       "createdAt": "2026-01-01T00:00:00.000Z",
       "sortOrder": 5
-    },
-    {
-      "id": "M-1781757605236",
-      "name": "测试工艺",
-      "description": "这是一个测试工艺",
-      "enabled": false,
-      "createdAt": "2026-06-18T04:40:05.236Z",
-      "sortOrder": 6
     }
   ]
 }

@@ -1110,6 +1110,9 @@ const page = `<!doctype html>
       const batchAppendBtns = document.querySelectorAll("[data-batch-append]");
       const deliverBtns = document.querySelectorAll("[data-deliver]");
       const obsBtns = document.querySelectorAll("[data-observation]");
+      const logBtns = document.querySelectorAll("[data-log]");
+      const stepSelects = document.querySelectorAll("[data-step]");
+      const noteInputs = document.querySelectorAll("[data-note]");
       const workbenchAdvanceBtns = document.querySelectorAll("[data-workbench-advance]");
       const workbenchLogBtns = document.querySelectorAll("[data-workbench-log]");
       const workbenchObsBtns = document.querySelectorAll("[data-workbench-obs]");
@@ -1119,6 +1122,8 @@ const page = `<!doctype html>
       const noRoleWarn = document.querySelector("#no-role-warn");
       const formEl = document.querySelector("#form");
       const csvImportEl = document.querySelector("#import-csv");
+      const viewCards = document.querySelector("#view-cards");
+      const viewWorkbench = document.querySelector("#view-workbench");
 
       if (!currentRole) {
         if (sampleForm) sampleForm.style.display = "none";
@@ -1126,8 +1131,8 @@ const page = `<!doctype html>
         if (methodConfigBtn) methodConfigBtn.style.display = "none";
         if (viewDeliveries) viewDeliveries.classList.remove("active");
         if (viewStats) viewStats.classList.remove("active");
-        if (document.querySelector("#view-cards")) document.querySelector("#view-cards").classList.remove("active");
-        if (document.querySelector("#view-workbench")) document.querySelector("#view-workbench").classList.remove("active");
+        if (viewCards) viewCards.classList.remove("active");
+        if (viewWorkbench) viewWorkbench.classList.remove("active");
         if (noRoleWarn) noRoleWarn.style.display = "";
         if (roleInfoContainer) roleInfoContainer.innerHTML = "";
         return;
@@ -1176,8 +1181,7 @@ const page = `<!doctype html>
       const canMethodManage = roleHasPerm(PERMISSIONS.METHOD_MANAGE);
 
       if (sampleForm) sampleForm.style.display = (canCreateSample || canAppendSlice || canCsvImport) ? "" : "none";
-      if (formEl && !canCreateSample) formEl.style.display = "none";
-      if (formEl && canCreateSample) formEl.style.display = "";
+      if (formEl) formEl.style.display = canCreateSample ? "" : "none";
       if (importTabs) {
         if (!canCsvImport && !canCreateSample) {
           importTabs.style.display = "none";
@@ -1189,13 +1193,16 @@ const page = `<!doctype html>
           if (csvTab) csvTab.style.display = canCsvImport ? "" : "none";
         }
       }
-      if (csvImportEl && !canCsvImport) csvImportEl.style.display = "none";
+      if (csvImportEl) csvImportEl.style.display = canCsvImport ? "" : "none";
       if (viewSamplesArea) viewSamplesArea.style.display = canViewSamples ? "" : "none";
       if (methodConfigBtn) methodConfigBtn.style.display = canMethodManage ? "" : "none";
 
       batchAppendBtns.forEach(btn => btn.style.display = canAppendSlice ? "" : "none");
       deliverBtns.forEach(btn => btn.style.display = canDeliveryCreate ? "" : "none");
       obsBtns.forEach(btn => btn.style.display = canObsCreate ? "" : "none");
+      logBtns.forEach(btn => btn.style.display = (canStepLog || canStepAdvance || canObsCreate) ? "" : "none");
+      stepSelects.forEach(sel => sel.style.display = (canStepLog || canStepAdvance || canObsCreate) ? "" : "none");
+      noteInputs.forEach(input => input.style.display = (canStepLog || canStepAdvance || canObsCreate) ? "" : "none");
       workbenchAdvanceBtns.forEach(btn => btn.style.display = canStepAdvance ? "" : "none");
       workbenchLogBtns.forEach(btn => btn.style.display = (canStepLog || canStepAdvance || canObsCreate) ? "" : "none");
       workbenchObsBtns.forEach(btn => btn.style.display = canObsCreate ? "" : "none");
@@ -1213,13 +1220,22 @@ const page = `<!doctype html>
           tab.style.display = visible ? "" : "none";
         });
       }
+    }
 
-      if (activeView === "deliveries" && !canDeliveryView) switchView("cards");
-      if (activeView === "stats" && !canStatsView) switchView("cards");
-      if ((activeView === "cards" || activeView === "workbench") && !canViewSamples) {
-        if (canDeliveryView) switchView("deliveries");
-        else if (canStatsView) switchView("stats");
-      }
+    function resolveDefaultView() {
+      if (!currentRole) return "cards";
+      const canViewSamples = roleHasPerm(PERMISSIONS.SAMPLE_VIEW);
+      const canDeliveryView = roleHasPerm(PERMISSIONS.DELIVERY_VIEW);
+      const canStatsView = roleHasPerm(PERMISSIONS.STATS_VIEW);
+
+      if (activeView === "deliveries" && canDeliveryView) return "deliveries";
+      if (activeView === "stats" && canStatsView) return "stats";
+      if ((activeView === "cards" || activeView === "workbench") && canViewSamples) return activeView;
+
+      if (canViewSamples) return "cards";
+      if (canDeliveryView) return "deliveries";
+      if (canStatsView) return "stats";
+      return "cards";
     }
 
     const form = document.querySelector("#form");
@@ -1467,39 +1483,24 @@ const page = `<!doctype html>
     }
 
     function switchView(view) {
+      if (!currentRole) return;
       activeView = view;
       document.querySelectorAll(".view-tab").forEach(tab => {
         tab.classList.toggle("active", tab.dataset.view === view);
       });
+      document.querySelectorAll(".view-content").forEach(content => {
+        content.classList.remove("active");
+      });
+      const targetEl = document.querySelector("#view-" + view);
+      if (targetEl) targetEl.classList.add("active");
       if (view === "deliveries") {
-        viewSamplesArea.style.display = "none";
-        form.style.display = "none";
-        document.querySelector("#view-deliveries").classList.add("active");
-        document.querySelector("#view-cards").classList.remove("active");
-        document.querySelector("#view-workbench").classList.remove("active");
-        document.querySelector("#view-stats").classList.remove("active");
         renderDeliveries();
       } else if (view === "stats") {
-        viewSamplesArea.style.display = "none";
-        form.style.display = "none";
-        document.querySelector("#view-deliveries").classList.remove("active");
-        document.querySelector("#view-cards").classList.remove("active");
-        document.querySelector("#view-workbench").classList.remove("active");
-        document.querySelector("#view-stats").classList.add("active");
         loadAndRenderStats();
+      } else if (view === "workbench") {
+        renderWorkbench();
       } else {
-        viewSamplesArea.style.display = "";
-        form.style.display = "";
-        document.querySelector("#view-deliveries").classList.remove("active");
-        document.querySelector("#view-stats").classList.remove("active");
-        document.querySelectorAll(".view-content").forEach(content => {
-          content.classList.toggle("active", content.id === "view-" + view);
-        });
-        if (view === "workbench") {
-          renderWorkbench();
-        } else {
-          render();
-        }
+        render();
       }
     }
 
@@ -2403,41 +2404,45 @@ const page = `<!doctype html>
 
     async function load(){
       initRoleSelector();
-      applyRoleToUI();
-      try {
-        if (!currentRole) {
-          samples = [];
-          deliveries = [];
-          methodDict = [];
-          methodDictLoaded = false;
-        } else {
-          [samples, deliveries] = await Promise.all([
-            api("/api/samples"),
-            api("/api/deliveries")
-          ]);
-          await loadMethodDict();
-          if (!createSliceRowsEl.querySelectorAll(".slice-row").length) {
-            initCreateSliceRows();
-          }
-        }
-      } catch (err) {
+      if (!currentRole) {
         samples = [];
         deliveries = [];
+        methodDict = [];
+        methodDictLoaded = false;
+        applyRoleToUI();
+        return;
+      }
+      try {
+        const results = await Promise.allSettled([
+          roleHasPerm(PERMISSIONS.SAMPLE_VIEW) ? api("/api/samples") : Promise.resolve([]),
+          roleHasPerm(PERMISSIONS.DELIVERY_VIEW) ? api("/api/deliveries") : Promise.resolve([])
+        ]);
+        samples = results[0].status === "fulfilled" ? results[0].value : [];
+        deliveries = results[1].status === "fulfilled" ? results[1].value : [];
+        if (roleHasPerm(PERMISSIONS.METHOD_VIEW)) {
+          await loadMethodDict();
+        }
+        if (!createSliceRowsEl.querySelectorAll(".slice-row").length) {
+          initCreateSliceRows();
+        }
+      } catch (err) {
         console.error("Failed to load data:", err);
       }
       populateFilterOptions();
       populateDeliveryFilterOptions();
       const urlFilters = urlToFilters();
       if (Object.keys(urlFilters).length) setFilters(urlFilters);
+      activeView = resolveDefaultView();
       applyRoleToUI();
       if (activeView === "workbench") {
         renderWorkbench();
       } else if (activeView === "deliveries") {
         renderDeliveries();
+      } else if (activeView === "stats") {
+        loadAndRenderStats();
       } else {
         render();
       }
-      applyRoleToUI();
     }
     function onFilterChange() {
       const filters = getFilters();
