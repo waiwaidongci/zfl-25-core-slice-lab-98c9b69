@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = join(__dirname, "data", "core-slices.json");
 const port = Number(process.env.PORT || 3025);
-const statuses = ["待切割", "制片中", "待观察", "已交付"];
+const statuses = ["待切割", "制片中", "待观察", "部分交付", "已交付"];
 const taskSteps = ["取样", "切割", "研磨", "染色", "观察"];
 const SLICE_ID_PATTERN = /^SL-\d+-[A-Za-z]+$/;
 
@@ -318,7 +318,6 @@ function migrateSample(sample) {
       if (!log.step) { log.step = "取样"; changed = true; }
     });
   });
-  updateSampleStatus(sample);
   return changed;
 }
 
@@ -331,6 +330,7 @@ function migrateDelivery(delivery) {
   if (!delivery.remark) { delivery.remark = ""; changed = true; }
   if (!Array.isArray(delivery.slices)) { delivery.slices = []; changed = true; }
   if (!delivery.sampleSnapshot) { delivery.sampleSnapshot = {}; changed = true; }
+  if (!delivery.deliveryType) { delivery.deliveryType = "full"; changed = true; }
   return changed;
 }
 
@@ -467,12 +467,44 @@ function sendJson(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data, null, 2));
 }
-function updateSampleStatus(sample) {
+function getDeliveredSliceIds(db, sampleId) {
+  const delivered = new Set();
+  db.deliveries.forEach(d => {
+    if (d.sampleId === sampleId) {
+      d.slices.forEach(s => delivered.add(s.id));
+    }
+  });
+  return delivered;
+}
+
+function updateSampleStatus(sample, db) {
   const sliceStatuses = sample.slices.map(slice => slice.status);
-  if (sample.delivery === "已交付") sample.status = "已交付";
-  else if (sliceStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) sample.status = "制片中";
-  else if (sliceStatuses.length && sliceStatuses.every(step => step === "观察")) sample.status = "待观察";
-  else sample.status = "待切割";
+  const deliveredSliceIds = db ? getDeliveredSliceIds(db, sample.id) : new Set();
+  const totalSlices = sample.slices.length;
+  const deliveredSlices = sample.slices.filter(s => deliveredSliceIds.has(s.id)).length;
+
+  if (sample.delivery === "已交付" || (deliveredSlices > 0 && deliveredSlices === totalSlices)) {
+    sample.status = "已交付";
+    sample.delivery = "已交付";
+  } else if (deliveredSlices > 0 && deliveredSlices < totalSlices) {
+    sample.status = "部分交付";
+    sample.delivery = "部分交付";
+  } else if (sliceStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) {
+    sample.status = "制片中";
+    if (sample.delivery !== "部分交付" && sample.delivery !== "已交付") {
+      sample.delivery = "未交付";
+    }
+  } else if (sliceStatuses.length && sliceStatuses.every(step => step === "观察")) {
+    sample.status = "待观察";
+    if (sample.delivery !== "部分交付" && sample.delivery !== "已交付") {
+      sample.delivery = "未交付";
+    }
+  } else {
+    sample.status = "待切割";
+    if (sample.delivery !== "部分交付" && sample.delivery !== "已交付") {
+      sample.delivery = "未交付";
+    }
+  }
 }
 
 function createSampleSnapshot(sample) {
@@ -1243,7 +1275,7 @@ const page = `<!doctype html>
             </div>
             <div>
               <label>交付状态</label>
-              <select id="filter-delivery"><option value="">全部</option><option value="未交付">未交付</option><option value="已交付">已交付</option></select>
+              <select id="filter-delivery"><option value="">全部</option><option value="未交付">未交付</option><option value="部分交付">部分交付</option><option value="已交付">已交付</option></select>
             </div>
           </div>
           <div class="filter-actions">
@@ -1853,8 +1885,8 @@ const page = `<!doctype html>
       return null;
     }
 
-    function getNextStepHint(sliceStatus, hasObservation, deliveryStatus) {
-      if (deliveryStatus === "已交付") return { text: "✓ 已完成交付", cls: "next-hint next-hint-done" };
+    function getNextStepHint(sliceStatus, hasObservation, deliveryStatus, isSliceDelivered) {
+      if (deliveryStatus === "已交付" || isSliceDelivered) return { text: "✓ 已完成交付", cls: "next-hint next-hint-done" };
       if (sliceStatus === "观察") {
         if (hasObservation) {
           const canDeliver = roleHasPerm(PERMISSIONS.DELIVERY_CREATE);
@@ -1878,6 +1910,11 @@ const page = `<!doctype html>
         const allSlices = getAllSlicesWithSample(filtered);
         const groups = groupSlicesByStep(allSlices);
         const totalSlices = allSlices.length;
+        
+        const deliveredSliceIds = new Set();
+        deliveries.forEach(d => {
+          d.slices.forEach(s => deliveredSliceIds.add(s.id));
+        });
 
         workbenchCountEl.textContent = totalSlices ? "工作台：共 " + totalSlices + " 个切片任务" : "没有符合条件的切片任务";
 
@@ -1905,7 +1942,8 @@ const page = `<!doctype html>
             const canObserve = slice.status === "观察";
             const sliceObs = slice.observations || [];
             const sliceLegacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
-            const wbNextHint = getNextStepHint(slice.status, sliceObs.length > 0 || sliceLegacyObs.length > 0, sample.delivery || "");
+            const sliceDelivered = deliveredSliceIds.has(slice.id);
+            const wbNextHint = getNextStepHint(slice.status, sliceObs.length > 0 || sliceLegacyObs.length > 0, sample.delivery || "", sliceDelivered);
             const wbNextHintHtml = wbNextHint.text ? '<div class="' + wbNextHint.cls + '">' + wbNextHint.text + '</div>' : '';
 
             return '<div class="workbench-card" data-workbench-card="' + sampleId + '|' + sliceId + '">' +
@@ -2092,6 +2130,10 @@ const page = `<!doctype html>
         samplesEl.innerHTML = '<div class="empty">没有符合筛选条件的样本，请调整筛选条件。</div>';
         return;
       }
+      
+      const allDeliveredSliceIds = new Set();
+      deliveries.forEach(d => d.slices.forEach(s => allDeliveredSliceIds.add(s.id)));
+      
       samplesEl.innerHTML = filtered.map(sample => {
         const allObservations = [];
         sample.slices.forEach(slice => {
@@ -2113,8 +2155,18 @@ const page = `<!doctype html>
           return item.sliceId + '[' + parts.join('；') + ']';
         }).join(' ') + '</div>' : '';
         const deliveryHistory = deliveries.filter(d => d.sampleId === sample.id);
-        const deliveryHistoryHtml = deliveryHistory.length ? '<div class="meta" style="margin-top:6px;"><b style="color:var(--accent);">历史交付（'+deliveryHistory.length+'）：</b>' + deliveryHistory.map(d => d.id + '（' + formatObsDate(d.deliveredAt) + '）').join('、') + '</div>' : '';
-        return '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+sample.delivery+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + summaryHtml + deliveryHistoryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
+        const deliveredSliceIds = new Set();
+        deliveryHistory.forEach(d => d.slices.forEach(s => deliveredSliceIds.add(s.id)));
+        const deliveredCount = sample.slices.filter(s => deliveredSliceIds.has(s.id)).length;
+        const totalSlices = sample.slices.length;
+        
+        let deliveryBadge = sample.delivery;
+        if (sample.delivery === "部分交付") {
+          deliveryBadge += '（' + deliveredCount + '/' + totalSlices + '）';
+        }
+        
+        const deliveryHistoryHtml = deliveryHistory.length ? '<div class="meta" style="margin-top:6px;"><b style="color:var(--accent);">历史交付（'+deliveryHistory.length+'）：</b>' + deliveryHistory.map(d => d.id + '（' + (d.deliveryType === 'partial' ? '部分' : '全部') + '，' + d.slices.length + '片，' + formatObsDate(d.deliveredAt) + '）').join('、') + '</div>' : '';
+        return '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+deliveryBadge+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + summaryHtml + deliveryHistoryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
           const observations = slice.observations || [];
           const lastObs = observations.length ? observations[observations.length - 1] : null;
           const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
@@ -2125,7 +2177,8 @@ const page = `<!doctype html>
             obsSummaryHtml = '<div class="obs-summary" style="margin-top:10px;"><div class="obs-header"><span class="label">观察结果</span></div><div class="obs-row">' + legacyObs + '</div></div>';
           }
           const obsBtn = slice.status === '观察' ? '<button type="button" class="secondary obs-btn" data-observation="'+sample.id+'|'+slice.id+'">📝 填写观察结果</button>' : '';
-          const nextHint = getNextStepHint(slice.status, observations.length > 0 || legacyObs.length > 0, sample.delivery);
+          const isSliceDelivered = deliveredSliceIds.has(slice.id);
+          const nextHint = getNextStepHint(slice.status, observations.length > 0 || legacyObs.length > 0, sample.delivery, isSliceDelivered);
           const nextHintHtml = nextHint.text ? '<div class="'+nextHint.cls+'">'+nextHint.text+'</div>' : '';
           return '<div class="slice"><b>'+slice.id+'</b><div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div>'+nextHintHtml+'<select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button>' + obsBtn + obsSummaryHtml + '<div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>';
         }).join("")+'<button data-deliver="'+sample.id+'">标记交付</button></article>';
@@ -2226,52 +2279,134 @@ const page = `<!doctype html>
       const s = data.sample;
       const slices = data.slices;
       const allObserved = data.allObserved;
+      const anySelectable = data.anySelectable;
+      const selectableCount = data.selectableCount || 0;
+      const deliveredCount = data.deliveredCount || 0;
+      const undeliveredCount = data.undeliveredCount || 0;
 
-      const basicInfoHtml = '<div class="delivery-section"><h3>样本基础信息</h3><div class="delivery-basic-info"><div><b>样本编号：</b>' + s.id + '</div><div><b>所属项目：</b>' + s.project + '</div><div><b>钻孔编号：</b>' + s.borehole + '</div><div><b>岩芯箱号：</b>' + s.coreBox + '</div><div><b>取样深度：</b>' + s.depth + '</div><div><b>负责人：</b>' + s.owner + '</div><div><b>样本状态：</b>' + s.status + '</div><div><b>交付状态：</b>' + s.delivery + '</div></div></div>';
+      let selectedSlices = new Set();
+      const selectableSlices = slices.filter(sl => sl.canSelect);
+      selectableSlices.forEach(sl => selectedSlices.add(sl.id));
 
-      const sliceTableHtml = '<div class="delivery-section"><h3>全部切片状态（' + data.observedCount + '/' + data.sliceCount + ' 已完成观察）</h3><table class="slice-status-table"><thead><tr><th>切片编号</th><th>染色方法</th><th>当前步骤</th><th>观察结果</th><th>最近日志</th></tr></thead><tbody>' + slices.map(slice => {
+      const basicInfoHtml = '<div class="delivery-section"><h3>样本基础信息</h3><div class="delivery-basic-info"><div><b>样本编号：</b>' + s.id + '</div><div><b>所属项目：</b>' + s.project + '</div><div><b>钻孔编号：</b>' + s.borehole + '</div><div><b>岩芯箱号：</b>' + s.coreBox + '</div><div><b>取样深度：</b>' + s.depth + '</div><div><b>负责人：</b>' + s.owner + '</div><div><b>样本状态：</b>' + s.status + '</div><div><b>交付状态：</b>' + s.delivery + '</div><div><b>已交付切片：</b>' + deliveredCount + '/' + data.sliceCount + '</div><div><b>可交付切片：</b>' + selectableCount + '</div></div></div>';
+
+      const sliceTableHtml = '<div class="delivery-section"><h3>切片选择（' + data.observedCount + '/' + data.sliceCount + ' 已完成观察）</h3><div style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><label style="margin:0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="select-all-slices" checked> 全选可交付切片</label><span class="meta" id="selected-count-label">已选择 ' + selectedSlices.size + ' 个切片</span></div><table class="slice-status-table"><thead><tr><th style="width:40px;">选择</th><th>切片编号</th><th>染色方法</th><th>当前步骤</th><th>观察结果</th><th>最近日志</th></tr></thead><tbody>' + slices.map(slice => {
         const isComplete = slice.status === "观察" && slice.hasObservation;
         const statusClass = isComplete ? "status-ok" : "status-warn";
         let statusText = "";
-        if (slice.status !== "观察") {
+        let checkboxDisabled = "";
+        let checkboxChecked = "";
+        let rowClass = "";
+        
+        if (slice.isDelivered) {
+          statusText = '<span class="status-ok">✓ 已交付</span>';
+          checkboxDisabled = "disabled";
+          rowClass = 'style="opacity:0.6;"';
+        } else if (slice.status !== "观察") {
           statusText = '<span class="status-warn">未到观察步骤（当前：' + slice.status + '）</span>';
+          checkboxDisabled = "disabled";
         } else if (!slice.hasObservation) {
           statusText = '<span class="status-warn">已到观察步骤但未填写结果</span>';
+          checkboxDisabled = "disabled";
         } else {
-          statusText = '<span class="status-ok">✓ 已完成</span>';
+          statusText = '<span class="status-ok">✓ 可交付</span>';
+          checkboxChecked = "checked";
         }
         const obsSummary = slice.observationSummary ? slice.observationSummary : '<span class="meta">—</span>';
         const lastLogText = slice.lastLog ? (slice.lastLog.step + "：" + (slice.lastLog.note || "无备注")) : '<span class="meta">—</span>';
-        return '<tr><td><b>' + slice.id + '</b></td><td>' + slice.method + '</td><td><span class="' + statusClass + '">' + slice.status + '</span></td><td>' + statusText + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + obsSummary + '</div></td><td style="font-size:12px;">' + lastLogText + '</td></tr>';
+        return '<tr ' + rowClass + '><td><input type="checkbox" class="slice-select-checkbox" data-slice-id="' + slice.id + '" ' + checkboxChecked + ' ' + checkboxDisabled + '></td><td><b>' + slice.id + '</b></td><td>' + slice.method + '</td><td><span class="' + statusClass + '">' + slice.status + '</span></td><td>' + statusText + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + obsSummary + '</div></td><td style="font-size:12px;">' + lastLogText + '</td></tr>';
       }).join("") + '</tbody></table></div>';
 
       let missingHtml = "";
-      if (!allObserved) {
-        const missingReasons = slices.filter(s => !(s.status === "观察" && s.hasObservation)).map(s => {
+      if (!anySelectable) {
+        const missingReasons = slices.filter(s => !(s.status === "观察" && s.hasObservation && !s.isDelivered)).map(s => {
+          if (s.isDelivered) {
+            return s.id + ' — 已交付';
+          } else if (s.status !== "观察") {
+            return s.id + ' — 当前步骤为「' + s.status + '」，尚未进入观察步骤';
+          } else {
+            return s.id + ' — 已进入观察步骤但未填写观察结果';
+          }
+        });
+        missingHtml = '<div class="delivery-section"><div class="missing-list"><b style="color:var(--danger);">⚠ 没有可交付的切片</b><ul>' + missingReasons.map(r => '<li>' + r + '</li>').join("") + '</ul></div></div>';
+      } else if (!allObserved) {
+        const missingReasons = slices.filter(s => !(s.status === "观察" && s.hasObservation) && !s.isDelivered).map(s => {
           if (s.status !== "观察") {
             return s.id + ' — 当前步骤为「' + s.status + '」，尚未进入观察步骤';
           } else {
             return s.id + ' — 已进入观察步骤但未填写观察结果';
           }
         });
-        missingHtml = '<div class="delivery-section"><div class="missing-list"><b style="color:var(--danger);">⚠ 观察结果缺失，无法生成交付记录</b><ul>' + missingReasons.map(r => '<li>' + r + '</li>').join("") + '</ul></div></div>';
+        if (missingReasons.length > 0) {
+          missingHtml = '<div class="delivery-section"><div class="missing-list" style="background:#fff8e6;border-color:#ffeeba;color:#856404;"><b style="color:#856404;">⚠ 部分切片尚未完成观察，可选择已完成的切片进行部分交付</b><ul>' + missingReasons.map(r => '<li>' + r + '</li>').join("") + '</ul></div></div>';
+        } else {
+          missingHtml = '<div class="delivery-section"><div class="complete-info">✓ 可以选择部分或全部切片进行交付</div></div>';
+        }
       } else {
-        missingHtml = '<div class="delivery-section"><div class="complete-info">✓ 全部切片已完成观察，可以生成交付记录</div></div>';
+        missingHtml = '<div class="delivery-section"><div class="complete-info">✓ 全部切片已完成观察，可以生成全部或部分交付记录</div></div>';
       }
 
       const logsHtml = '<div class="delivery-section"><h3>步骤日志摘要（最近 ' + data.logsSummary.length + ' 条 / 共 ' + data.totalLogs + ' 条）</h3><div class="logs-summary">' + data.logsSummary.map(log => {
         return '<div class="logs-summary-item"><span class="log-time">' + formatObsDate(log.at) + '</span><span class="log-slice">' + log.sliceId + '</span><span class="log-step">' + log.step + '</span>' + (log.note || '<span class="meta">无备注</span>') + '</div>';
       }).join("") + '</div></div>';
 
-      const formHtml = allObserved ? '<div class="delivery-section"><h3>交付信息录入</h3><div class="delivery-form-row"><div><label>交付人 *</label><input id="dlv-deliveredBy" placeholder="请输入交付人姓名"></div><div><label>接收单位 *</label><input id="dlv-receivingUnit" placeholder="请输入接收单位名称"></div><div class="full"><label>备注</label><textarea id="dlv-remark" placeholder="请输入备注信息（选填）"></textarea></div></div><div id="dlv-alert" style="margin-top:10px;"></div></div>' : "";
+      const formHtml = anySelectable ? '<div class="delivery-section"><h3>交付信息录入</h3><div class="delivery-form-row"><div><label>交付人 *</label><input id="dlv-deliveredBy" placeholder="请输入交付人姓名"></div><div><label>接收单位 *</label><input id="dlv-receivingUnit" placeholder="请输入接收单位名称"></div><div class="full"><label>备注</label><textarea id="dlv-remark" placeholder="请输入备注信息（选填）"></textarea></div></div><div id="dlv-alert" style="margin-top:10px;"></div></div>' : "";
 
-      const footerHtml = '<div class="modal-footer"><button type="button" class="secondary" id="dlv-cancel">取消</button>' + (allObserved ? '<button type="button" id="dlv-confirm">生成交付记录</button>' : "") + '</div>';
+      const footerHtml = '<div class="modal-footer"><button type="button" class="secondary" id="dlv-cancel">取消</button>' + (anySelectable ? '<button type="button" id="dlv-confirm">生成交付记录</button>' : "") + '</div>';
 
       modal.innerHTML = '<h2>交付确认 — ' + s.id + '</h2>' + basicInfoHtml + sliceTableHtml + missingHtml + logsHtml + formHtml + footerHtml;
 
+      function updateSelectedCount() {
+        const count = selectedSlices.size;
+        const label = modal.querySelector("#selected-count-label");
+        if (label) {
+          label.textContent = '已选择 ' + count + ' 个切片';
+        }
+        const confirmBtn = modal.querySelector("#dlv-confirm");
+        if (confirmBtn) {
+          confirmBtn.disabled = count === 0;
+          confirmBtn.style.opacity = count === 0 ? '0.5' : '1';
+        }
+        const selectAll = modal.querySelector("#select-all-slices");
+        if (selectAll) {
+          const checkboxes = modal.querySelectorAll(".slice-select-checkbox:not(:disabled)");
+          const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+          selectAll.checked = allChecked;
+        }
+      }
+
+      const selectAllCheckbox = modal.querySelector("#select-all-slices");
+      if (selectAllCheckbox) {
+        selectAllCheckbox.onchange = () => {
+          const isChecked = selectAllCheckbox.checked;
+          modal.querySelectorAll(".slice-select-checkbox:not(:disabled)").forEach(cb => {
+            cb.checked = isChecked;
+            const sliceId = cb.dataset.sliceId;
+            if (isChecked) {
+              selectedSlices.add(sliceId);
+            } else {
+              selectedSlices.delete(sliceId);
+            }
+          });
+          updateSelectedCount();
+        };
+      }
+
+      modal.querySelectorAll(".slice-select-checkbox").forEach(cb => {
+        cb.onchange = () => {
+          const sliceId = cb.dataset.sliceId;
+          if (cb.checked) {
+            selectedSlices.add(sliceId);
+          } else {
+            selectedSlices.delete(sliceId);
+          }
+          updateSelectedCount();
+        };
+      });
+
       modal.querySelector("#dlv-cancel").onclick = () => mask.remove();
 
-      if (allObserved) {
+      if (anySelectable) {
         const sampleOwner = s.owner || "";
         if (sampleOwner) {
           modal.querySelector("#dlv-deliveredBy").value = sampleOwner;
@@ -2281,6 +2416,8 @@ const page = `<!doctype html>
           const receivingUnit = modal.querySelector("#dlv-receivingUnit").value.trim();
           const remark = modal.querySelector("#dlv-remark").value.trim();
           const alertEl = modal.querySelector("#dlv-alert");
+          const sliceIds = Array.from(selectedSlices);
+          
           if (!deliveredBy) {
             showAlert(alertEl, ["请填写交付人"]);
             return;
@@ -2289,10 +2426,14 @@ const page = `<!doctype html>
             showAlert(alertEl, ["请填写接收单位"]);
             return;
           }
+          if (sliceIds.length === 0) {
+            showAlert(alertEl, ["请至少选择一个切片"]);
+            return;
+          }
           try {
             await api('/api/samples/' + sampleId + '/deliveries', {
               method: 'POST',
-              body: JSON.stringify({ deliveredBy, receivingUnit, remark })
+              body: JSON.stringify({ deliveredBy, receivingUnit, remark, sliceIds })
             });
             mask.remove();
             await load();
@@ -2322,7 +2463,9 @@ const page = `<!doctype html>
       }
       deliveriesEl.innerHTML = filtered.map(d => {
         const ss = d.sampleSnapshot || {};
-        return '<div class="delivery-card"><div class="delivery-card-header"><div class="delivery-card-id">' + d.id + '</div><div class="delivery-card-time">' + formatObsDate(d.deliveredAt) + '</div></div><div class="delivery-card-info"><div><b>样本编号：</b>' + (ss.id || "-") + '</div><div><b>所属项目：</b>' + (ss.project || "-") + '</div><div><b>钻孔/箱号：</b>' + (ss.borehole || "-") + ' / ' + (ss.coreBox || "-") + '</div><div><b>取样深度：</b>' + (ss.depth || "-") + '</div><div><b>交付人：</b>' + d.deliveredBy + '</div><div><b>接收单位：</b>' + d.receivingUnit + '</div></div><div class="delivery-card-slices"><b>包含切片（' + d.slices.length + ' 个）：</b>' + d.slices.map(s => '<span class="slice-item">' + s.id + '（' + s.method + '）</span>').join("") + '</div>' + (d.remark ? '<div class="delivery-card-remark"><b>备注：</b>' + d.remark + '</div>' : "") + '</div>';
+        const deliveryTypeLabel = d.deliveryType === "partial" ? "部分交付" : "全部交付";
+        const deliveryTypeClass = d.deliveryType === "partial" ? 'style="background:#fff8e6;color:#856404;border-color:#ffeeba;"' : "";
+        return '<div class="delivery-card"><div class="delivery-card-header"><div><span class="delivery-card-id">' + d.id + '</span> <span class="method-badge" ' + deliveryTypeClass + '>' + deliveryTypeLabel + '</span></div><div class="delivery-card-time">' + formatObsDate(d.deliveredAt) + '</div></div><div class="delivery-card-info"><div><b>样本编号：</b>' + (ss.id || "-") + '</div><div><b>所属项目：</b>' + (ss.project || "-") + '</div><div><b>钻孔/箱号：</b>' + (ss.borehole || "-") + ' / ' + (ss.coreBox || "-") + '</div><div><b>取样深度：</b>' + (ss.depth || "-") + '</div><div><b>交付人：</b>' + d.deliveredBy + '</div><div><b>接收单位：</b>' + d.receivingUnit + '</div></div><div class="delivery-card-slices"><b>包含切片（' + d.slices.length + ' 个）：</b>' + d.slices.map(s => '<span class="slice-item">' + s.id + '（' + s.method + '）</span>').join("") + '</div>' + (d.remark ? '<div class="delivery-card-remark"><b>备注：</b>' + d.remark + '</div>' : "") + '</div>';
       }).join("");
     }
 
@@ -3544,7 +3687,7 @@ const server = http.createServer(async (req, res) => {
           logs: [{ at: new Date().toISOString(), step: "取样", note: "创建初始切片任务" }]
         }))
       };
-      updateSampleStatus(sample);
+      updateSampleStatus(sample, db);
       db.samples.unshift(sample);
       recordAudit(db, { sampleId: sample.id, action: "sample:create", operator: currentRole, sourceApi: "POST /api/samples", beforeSample: null, afterSample: sample });
       await saveDb(db);
@@ -3565,7 +3708,7 @@ const server = http.createServer(async (req, res) => {
       }
       const beforeSample = createSampleSnapshot(sample);
       sample.slices.push({ id: input.id.trim(), method: (input.method || "未指定").trim(), observation: "", observations: [], status: "取样", logs: [{ at: new Date().toISOString(), step: "取样", note: "新增切片任务" }] });
-      updateSampleStatus(sample);
+      updateSampleStatus(sample, db);
       recordAudit(db, { sampleId: sample.id, action: "slice:append", operator: currentRole, sourceApi: "POST /api/samples/:id/slices", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 201, sample);
@@ -3598,7 +3741,7 @@ const server = http.createServer(async (req, res) => {
           logs: [{ at: new Date().toISOString(), step: "取样", note: "批量追加切片任务" }]
         });
       });
-      updateSampleStatus(sample);
+      updateSampleStatus(sample, db);
       recordAudit(db, { sampleId: sample.id, action: "slice:batch", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/batch", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 201, sample);
@@ -3634,7 +3777,7 @@ const server = http.createServer(async (req, res) => {
       slice.status = input.step;
       if (input.step === "观察") slice.observation = input.note || slice.observation;
       slice.logs.push({ at: new Date().toISOString(), step: input.step, note: input.note || "" });
-      updateSampleStatus(sample);
+      updateSampleStatus(sample, db);
       recordAudit(db, { sampleId: sample.id, action: "step:advance", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/logs", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 200, sample);
@@ -3644,11 +3787,16 @@ const server = http.createServer(async (req, res) => {
       if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_PREVIEW, res)) return;
       const sample = db.samples.find(item => item.id === deliveryPreviewMatch[1]);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      
+      const deliveredSliceIds = getDeliveredSliceIds(db, sample.id);
+      
       const slicesInfo = sample.slices.map(slice => {
         const observations = slice.observations || [];
         const lastObs = observations.length ? observations[observations.length - 1] : null;
         const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
         const hasObservation = observations.length > 0 || legacyObs.length > 0;
+        const isDelivered = deliveredSliceIds.has(slice.id);
+        const canSelect = slice.status === "观察" && hasObservation && !isDelivered;
         let observationSummary = "";
         if (lastObs) {
           observationSummary = [lastObs.lithology, lastObs.minerals, lastObs.texture].filter(Boolean).join("；");
@@ -3664,10 +3812,15 @@ const server = http.createServer(async (req, res) => {
           isLegacyObservation: observations.length === 0 && legacyObs.length > 0,
           observationSummary,
           logsCount: slice.logs ? slice.logs.length : 0,
-          lastLog: slice.logs && slice.logs.length ? slice.logs[slice.logs.length - 1] : null
+          lastLog: slice.logs && slice.logs.length ? slice.logs[slice.logs.length - 1] : null,
+          isDelivered,
+          canSelect
         };
       });
+      
       const allObserved = slicesInfo.length > 0 && slicesInfo.every(s => s.status === "观察" && s.hasObservation);
+      const selectableSlices = slicesInfo.filter(s => s.canSelect);
+      const anySelectable = selectableSlices.length > 0;
       const missingObservations = slicesInfo.filter(s => !(s.status === "观察" && s.hasObservation)).map(s => s.id);
       const logsSummary = [];
       sample.slices.forEach(slice => {
@@ -3683,6 +3836,10 @@ const server = http.createServer(async (req, res) => {
         }
       });
       logsSummary.sort((a, b) => new Date(b.at) - new Date(a.at));
+      
+      const undeliveredCount = slicesInfo.filter(s => !s.isDelivered).length;
+      const deliveredCount = slicesInfo.filter(s => s.isDelivered).length;
+      
       return sendJson(res, 200, {
         sample: {
           id: sample.id,
@@ -3696,11 +3853,15 @@ const server = http.createServer(async (req, res) => {
         },
         slices: slicesInfo,
         allObserved,
+        anySelectable,
+        selectableCount: selectableSlices.length,
         missingObservations,
         logsSummary: logsSummary.slice(0, 20),
         totalLogs: logsSummary.length,
         sliceCount: slicesInfo.length,
-        observedCount: slicesInfo.filter(s => s.hasObservation).length
+        observedCount: slicesInfo.filter(s => s.hasObservation).length,
+        deliveredCount,
+        undeliveredCount
       });
     }
 
@@ -3710,22 +3871,46 @@ const server = http.createServer(async (req, res) => {
       const sampleId = createDeliveryMatch[1];
       const sample = db.samples.find(item => item.id === sampleId);
       if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      
+      const input = await body(req);
+      const selectedSliceIds = Array.isArray(input.sliceIds) ? input.sliceIds : [];
+      const deliveredSliceIds = getDeliveredSliceIds(db, sampleId);
+      
       const slicesInfo = sample.slices.map(slice => {
         const observations = slice.observations || [];
         const lastObs = observations.length ? observations[observations.length - 1] : null;
         const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
         const hasObservation = observations.length > 0 || legacyObs.length > 0;
+        const isDelivered = deliveredSliceIds.has(slice.id);
+        const canSelect = slice.status === "观察" && hasObservation && !isDelivered;
         return {
+          id: slice.id,
           status: slice.status,
           hasObservation,
-          observationId: lastObs ? lastObs.id : null
+          canSelect,
+          isDelivered
         };
       });
-      const allObserved = slicesInfo.length > 0 && slicesInfo.every(s => s.status === "观察" && s.hasObservation);
-      if (!allObserved) {
-        return sendJson(res, 400, { error: "全部切片完成观察后才能生成交付记录" });
+      
+      const selectableSlices = slicesInfo.filter(s => s.canSelect);
+      if (selectableSlices.length === 0) {
+        return sendJson(res, 400, { error: "没有可交付的切片，请确保切片已完成观察且尚未交付" });
       }
-      const input = await body(req);
+      
+      let slicesToDeliver;
+      if (selectedSliceIds.length === 0) {
+        slicesToDeliver = selectableSlices;
+      } else {
+        const validSelected = selectedSliceIds.filter(id => {
+          const info = slicesInfo.find(s => s.id === id);
+          return info && info.canSelect;
+        });
+        if (validSelected.length === 0) {
+          return sendJson(res, 400, { error: "所选切片均不符合交付条件" });
+        }
+        slicesToDeliver = validSelected.map(id => slicesInfo.find(s => s.id === id));
+      }
+      
       const deliveredBy = (input.deliveredBy || "").trim();
       const receivingUnit = (input.receivingUnit || "").trim();
       const remark = (input.remark || "").trim();
@@ -3735,6 +3920,11 @@ const server = http.createServer(async (req, res) => {
       if (!receivingUnit) {
         return sendJson(res, 400, { error: "请填写接收单位" });
       }
+      
+      const totalSlices = sample.slices.length;
+      const isFullDelivery = slicesToDeliver.length === totalSlices;
+      const deliveryType = isFullDelivery ? "full" : "partial";
+      
       const delivery = {
         id: `DLV-${Date.now()}`,
         sampleId,
@@ -3742,7 +3932,9 @@ const server = http.createServer(async (req, res) => {
         deliveredBy,
         receivingUnit,
         remark,
-        slices: sample.slices.map(slice => {
+        deliveryType,
+        slices: slicesToDeliver.map(sliceInfo => {
+          const slice = sample.slices.find(s => s.id === sliceInfo.id);
           const observations = slice.observations || [];
           const lastObs = observations.length ? observations[observations.length - 1] : null;
           const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
@@ -3764,11 +3956,23 @@ const server = http.createServer(async (req, res) => {
           owner: sample.owner
         }
       };
+      
       const beforeSample = createSampleSnapshot(sample);
       db.deliveries.unshift(delivery);
-      sample.delivery = "已交付";
-      updateSampleStatus(sample);
-      recordAudit(db, { sampleId: sample.id, action: "delivery:confirm", operator: currentRole, sourceApi: "POST /api/samples/:id/deliveries", beforeSample, afterSample: sample, deliverySnapshot: delivery });
+      
+      updateSampleStatus(sample, db);
+      
+      recordAudit(db, { 
+        sampleId: sample.id, 
+        action: "delivery:confirm", 
+        operator: currentRole, 
+        sourceApi: "POST /api/samples/:id/deliveries", 
+        beforeSample, 
+        afterSample: sample, 
+        deliverySnapshot: delivery,
+        note: `交付类型：${deliveryType === "full" ? "全部交付" : "部分交付"}，交付切片：${slicesToDeliver.length} 个（${slicesToDeliver.map(s => s.id).join("、")}）`
+      });
+      
       await saveDb(db);
       return sendJson(res, 201, delivery);
     }
@@ -3832,7 +4036,7 @@ const server = http.createServer(async (req, res) => {
         if (minerals) summaryParts.push(minerals);
         if (texture) summaryParts.push(texture);
         slice.observation = summaryParts.join("；") || remark;
-        updateSampleStatus(sample);
+        updateSampleStatus(sample, db);
         recordAudit(db, { sampleId: sample.id, action: "observation:create", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/observations", beforeSample, afterSample: sample });
         await saveDb(db);
         return sendJson(res, 201, { sample, record });
@@ -3951,7 +4155,7 @@ const server = http.createServer(async (req, res) => {
                 logs: [{ at: new Date().toISOString(), step: "取样", note: "CSV批量导入创建初始切片任务" }]
               }))
             };
-            updateSampleStatus(newSample);
+            updateSampleStatus(newSample, db);
             db.samples.unshift(newSample);
             recordAudit(db, { sampleId: newSample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/import", beforeSample: null, afterSample: newSample });
             successSamples++;
@@ -3976,7 +4180,7 @@ const server = http.createServer(async (req, res) => {
                   logs: [{ at: new Date().toISOString(), step: "取样", note: "CSV批量导入追加切片任务" }]
                 });
               });
-              updateSampleStatus(sample);
+              updateSampleStatus(sample, db);
               recordAudit(db, { sampleId: sample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/import", beforeSample, afterSample: sample });
               successSlices += item.newSlices.length;
               results.push({
@@ -4057,7 +4261,8 @@ const server = http.createServer(async (req, res) => {
         return null;
       }
 
-      function isSliceDone(slice, sampleDelivered, parsedLogs) {
+      function isSliceDone(slice, sampleDelivered, parsedLogs, deliveredSliceIds) {
+        if (deliveredSliceIds && deliveredSliceIds.has(slice.id)) return true;
         if (sampleDelivered) return true;
         const hasObs = sliceHasObservation(slice);
         const status = slice.status || "";
@@ -4092,6 +4297,7 @@ const server = http.createServer(async (req, res) => {
       filtered.forEach(sample => {
         if (!sample.slices || !Array.isArray(sample.slices)) return;
         const sampleDelivered = sample.delivery === "已交付";
+        const deliveredSliceIds = getDeliveredSliceIds(db, sample.id);
 
         if (!sampleTimingsMap[sample.id]) {
           sampleTimingsMap[sample.id] = {
@@ -4121,7 +4327,7 @@ const server = http.createServer(async (req, res) => {
             .filter(log => log._time !== null && log.step)
             .sort((a, b) => a._time - b._time);
 
-          const done = isSliceDone(slice, sampleDelivered, parsedLogs);
+          const done = isSliceDone(slice, sampleDelivered, parsedLogs, deliveredSliceIds);
           const obsTime = getSliceObservationTime(slice);
 
           if (done) {
@@ -4530,7 +4736,7 @@ const server = http.createServer(async (req, res) => {
       migrateSample(restoredSample);
       const wasDelivered = beforeRollback.delivery === "已交付";
       const willBeDelivered = restoredSample.delivery === "已交付";
-      updateSampleStatus(restoredSample);
+      updateSampleStatus(restoredSample, db);
       const sampleIdx = db.samples.findIndex(s => s.id === sampleId);
       if (sampleIdx >= 0) db.samples[sampleIdx] = restoredSample;
       const removedDeliveries = [];
