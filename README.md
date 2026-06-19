@@ -84,13 +84,16 @@ npm start
 | **rows** | 修正后的行数据数组 |
 | **issueSummary** | 问题摘要，如"3 行有效，2 行有误" |
 | **createdAt** | 草稿创建时间（ISO格式） |
+| **updatedAt** | 草稿最后更新时间（ISO格式），首次创建后更新时才会出现 |
 
 #### 后端接口
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/csv/drafts` | 获取所有导入草稿 |
+| GET | `/api/csv/drafts/:id` | 获取单个草稿详情 |
 | POST | `/api/csv/drafts` | 保存新草稿，参数：`{ fileName, rows, issueSummary }` |
+| PUT | `/api/csv/drafts/:id` | 更新指定草稿，参数可选：`{ fileName, rows, issueSummary }` |
 | DELETE | `/api/csv/drafts/:id` | 删除指定草稿 |
 | POST | `/api/csv/drafts/:id/import` | 从草稿直接导入，导入成功后自动删除草稿 |
 

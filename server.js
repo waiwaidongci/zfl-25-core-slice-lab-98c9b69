@@ -1699,6 +1699,7 @@ const page = `<!doctype html>
       roleSelect.onchange = () => {
         setRole(roleSelect.value);
         load();
+        if (typeof loadDrafts === "function") loadDrafts();
       };
     }
 

@@ -911,24 +911,5 @@
       ]
     }
   ],
-  "importDrafts": [
-    {
-      "id": "DRAFT-1781852491918-rste",
-      "fileName": "updated.csv",
-      "rows": [
-        {
-          "project": "更新项目",
-          "borehole": "ZK-02",
-          "coreBox": "BX-02",
-          "depth": "20-30m",
-          "owner": "李四",
-          "sliceId": "SL-999-B",
-          "method": "茜素红染色"
-        }
-      ],
-      "issueSummary": "1 行有效，0 行有误（已更新）",
-      "createdAt": "2026-06-19T07:01:31.918Z",
-      "updatedAt": "2026-06-19T07:08:44.727Z"
-    }
-  ]
+  "importDrafts": []
 }
