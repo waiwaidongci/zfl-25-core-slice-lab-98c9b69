@@ -2,16 +2,17 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdir, writeFile, unlink, readFile } from "node:fs/promises";
+import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import net from "node:net";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
 const testDbPath = join(projectRoot, "data", "test-core-slices.json");
-const originalDbPath = join(projectRoot, "data", "core-slices.json");
-const testPort = 3026;
+const defaultPort = Number(process.env.API_TEST_PORT) || 3026;
+let testPort = defaultPort;
 
 const seed = {
   methods: [
@@ -40,7 +41,25 @@ const seed = {
 };
 
 let serverProcess;
-let originalDbBackup;
+
+async function checkPort(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(true));
+    server.once("listening", () => {
+      server.close();
+      resolve(false);
+    });
+    server.listen(port, "localhost");
+  });
+}
+
+async function findAvailablePort(startPort) {
+  for (let port = startPort; port < startPort + 20; port++) {
+    if (!(await checkPort(port))) return port;
+  }
+  return null;
+}
 
 function request(path, options = {}) {
   return new Promise((resolve, reject) => {
@@ -116,10 +135,38 @@ async function waitForServer() {
   });
 }
 
+async function killServer() {
+  if (!serverProcess) return;
+  const proc = serverProcess;
+  serverProcess = null;
+
+  const alreadyDead = new Promise((resolve) => {
+    proc.on("exit", resolve);
+  });
+
+  proc.kill("SIGTERM");
+
+  const timeout = new Promise((resolve) => setTimeout(resolve, 5000));
+  await Promise.race([alreadyDead, timeout]);
+
+  try {
+    proc.kill("SIGKILL");
+  } catch {}
+  await alreadyDead.catch(() => {});
+}
+
+async function cleanupData() {
+  try {
+    if (existsSync(testDbPath)) await unlink(testDbPath);
+  } catch {}
+}
+
 async function setupTestServer() {
-  if (existsSync(originalDbPath)) {
-    originalDbBackup = await readFile(originalDbPath);
+  const availablePort = await findAvailablePort(defaultPort);
+  if (!availablePort) {
+    throw new Error(`端口 ${defaultPort}-${defaultPort + 19} 均被占用，无法启动回归测试服务`);
   }
+  testPort = availablePort;
 
   await mkdir(dirname(testDbPath), { recursive: true });
   await writeFile(testDbPath, JSON.stringify(seed, null, 2));
@@ -134,25 +181,33 @@ async function setupTestServer() {
     stdio: "inherit"
   });
 
+  serverProcess.on("exit", (code) => {
+    if (code && code !== 0 && serverProcess) {
+      console.error(`回归测试服务进程异常退出，退出码: ${code}`);
+    }
+  });
+
   await waitForServer();
 }
 
 async function teardownTestServer() {
-  if (serverProcess) {
-    serverProcess.kill();
-    await new Promise((resolve) => {
-      serverProcess.on("exit", resolve);
-    });
-  }
-
-  if (existsSync(testDbPath)) {
-    await unlink(testDbPath);
-  }
-
-  if (originalDbBackup !== undefined) {
-    await writeFile(originalDbPath, originalDbBackup);
-  }
+  await killServer();
+  await cleanupData();
 }
+
+async function emergencyCleanup() {
+  await killServer();
+  await cleanupData();
+}
+
+process.on("SIGINT", async () => {
+  await emergencyCleanup();
+  process.exit(130);
+});
+process.on("SIGTERM", async () => {
+  await emergencyCleanup();
+  process.exit(143);
+});
 
 describe("CSV导入API回归测试", () => {
   before(async () => {

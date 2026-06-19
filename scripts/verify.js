@@ -1,15 +1,23 @@
 import { spawn, execSync } from "node:child_process";
-import { mkdir, writeFile, unlink, readFile, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { unlink } from "node:fs/promises";
+import { existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import net from "node:net";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
+const dataDir = join(projectRoot, "data");
 
-const VERIFY_PORT = 3030;
-const VERIFY_DB_PATH = join(projectRoot, "data", "verify-core-slices.json");
+const SMOKE_DEFAULT_PORT = 3027;
+const API_DEFAULT_PORT = 3026;
+const TEST_PORTS = [API_DEFAULT_PORT, SMOKE_DEFAULT_PORT];
+
+const TEST_DATA_PATTERNS = [
+  "test-",
+  "smoke-test-",
+  "verify-"
+];
 
 const stages = [
   { name: "代码检查", script: "lint", status: "pending" },
@@ -28,8 +36,8 @@ function printHeader() {
   console.log("  岩芯切片实验室 - 本地验证流水线");
   console.log("=".repeat(60));
   console.log(`  项目路径: ${projectRoot}`);
-  console.log(`  验证端口: ${VERIFY_PORT}`);
-  console.log(`  数据隔离: ${VERIFY_DB_PATH.replace(projectRoot + "/", "")}`);
+  console.log(`  烟测端口: ${SMOKE_DEFAULT_PORT} (自动回退)`);
+  console.log(`  回归端口: ${API_DEFAULT_PORT} (自动回退)`);
   console.log("=".repeat(60) + "\n");
 }
 
@@ -89,24 +97,87 @@ async function checkPort(port) {
 }
 
 async function findAvailablePort(startPort) {
-  let port = startPort;
-  for (let i = 0; i < 20; i++) {
-    const inUse = await checkPort(port);
-    if (!inUse) return port;
-    port++;
+  for (let port = startPort; port < startPort + 20; port++) {
+    if (!(await checkPort(port))) return port;
   }
   return null;
 }
 
-function runNpmScript(scriptName) {
+function killProcessesOnPort(port) {
+  try {
+    const pids = execSync(`lsof -ti:${port} 2>/dev/null || true`, { encoding: "utf8" })
+      .trim()
+      .split("\n")
+      .map(p => p.trim())
+      .filter(Boolean);
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), "SIGKILL");
+      } catch {}
+    }
+    return pids.length;
+  } catch {
+    return 0;
+  }
+}
+
+function findTestDataFiles() {
+  if (!existsSync(dataDir)) return [];
+  try {
+    return readdirSync(dataDir)
+      .filter(f => TEST_DATA_PATTERNS.some(p => f.startsWith(p)) && f.endsWith(".json"))
+      .map(f => join(dataDir, f));
+  } catch {
+    return [];
+  }
+}
+
+async function cleanupTestDataFiles() {
+  const files = findTestDataFiles();
+  for (const file of files) {
+    try {
+      await unlink(file);
+    } catch {}
+  }
+  return files.length;
+}
+
+async function cleanupStaleResources() {
+  let killedProcs = 0;
+  for (const port of TEST_PORTS) {
+    const inUse = await checkPort(port);
+    if (inUse) {
+      const count = killProcessesOnPort(port);
+      if (count > 0) {
+        killedProcs += count;
+        console.log(`  🧹 已清理端口 ${port} 上的 ${count} 个残留进程`);
+      }
+    }
+  }
+
+  if (killedProcs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  const files = findTestDataFiles();
+  if (files.length > 0) {
+    const count = await cleanupTestDataFiles();
+    if (count > 0) {
+      console.log(`  🧹 已清理 ${count} 个残留测试数据文件`);
+    }
+  }
+
+  return { killedProcs, cleanedFiles: files.length };
+}
+
+function runNpmScript(scriptName, env = {}) {
   return new Promise((resolve) => {
     const child = spawn("npm", ["run", scriptName], {
       cwd: projectRoot,
       stdio: ["inherit", "pipe", "pipe"],
       env: {
         ...process.env,
-        VERIFY_PORT: String(VERIFY_PORT),
-        VERIFY_DB_PATH
+        ...env
       }
     });
 
@@ -143,7 +214,15 @@ async function runStage(index) {
   }
 
   printStageStart(stage.name);
-  const result = await runNpmScript(stage.script);
+
+  const env = {};
+  if (stage.script === "test:smoke") {
+    env.SMOKE_TEST_PORT = String(SMOKE_DEFAULT_PORT);
+  } else if (stage.script === "test:api") {
+    env.API_TEST_PORT = String(API_DEFAULT_PORT);
+  }
+
+  const result = await runNpmScript(stage.script, env);
 
   if (result.success) {
     stage.status = "passed";
@@ -160,15 +239,16 @@ async function runStage(index) {
   }
 }
 
-async function cleanup() {
-  console.log("\n🧹 清理测试资源...");
-  try {
-    if (existsSync(VERIFY_DB_PATH)) {
-      await unlink(VERIFY_DB_PATH);
-      console.log("  已清理隔离数据文件");
-    }
-  } catch (e) {
-    console.log(`  清理数据文件失败: ${e.message}`);
+async function finalCleanup() {
+  console.log("\n🧹 最终清理...");
+
+  for (const port of TEST_PORTS) {
+    killProcessesOnPort(port);
+  }
+
+  const count = await cleanupTestDataFiles();
+  if (count > 0) {
+    console.log(`  已清理 ${count} 个测试数据文件`);
   }
   console.log("  清理完成\n");
 }
@@ -177,37 +257,40 @@ async function main() {
   startTime = Date.now();
   printHeader();
 
-  console.log("🔍 前置检查");
+  console.log("🔍 前置检查与环境清理");
   console.log("");
 
   const defaultPortInUse = await checkPort(3025);
   if (defaultPortInUse) {
-    console.log("  ⚠️  默认端口 3025 已被占用（不影响验证，使用独立端口）");
+    console.log("  ⚠️  默认端口 3025 已被占用（不影响验证，测试使用独立端口）");
   } else {
     console.log("  ✅ 默认端口 3025 可用");
   }
 
-  const verifyPortAvailable = await findAvailablePort(VERIFY_PORT);
-  if (!verifyPortAvailable) {
-    console.log("  ❌ 未找到可用的验证端口");
+  const smokePortAvailable = await findAvailablePort(SMOKE_DEFAULT_PORT);
+  if (!smokePortAvailable) {
+    console.log(`  ❌ 烟测端口 ${SMOKE_DEFAULT_PORT}-${SMOKE_DEFAULT_PORT + 19} 均不可用`);
     process.exit(1);
   }
-  console.log(`  ✅ 验证端口 ${verifyPortAvailable} 可用`);
+  console.log(`  ✅ 烟测端口 ${smokePortAvailable} 可用`);
 
-  if (existsSync(VERIFY_DB_PATH)) {
-    console.log("  ⚠️  存在遗留验证数据文件，将清理");
-    await cleanup();
-  } else {
-    console.log("  ✅ 无遗留验证数据文件");
+  const apiPortAvailable = await findAvailablePort(API_DEFAULT_PORT);
+  if (!apiPortAvailable) {
+    console.log(`  ❌ 回归测试端口 ${API_DEFAULT_PORT}-${API_DEFAULT_PORT + 19} 均不可用`);
+    process.exit(1);
   }
+  console.log(`  ✅ 回归测试端口 ${apiPortAvailable} 可用`);
 
-  process.env.VERIFY_PORT = String(verifyPortAvailable);
+  const { killedProcs, cleanedFiles } = await cleanupStaleResources();
+  if (killedProcs === 0 && cleanedFiles === 0) {
+    console.log("  ✅ 无残留资源需要清理");
+  }
 
   for (let i = 0; i < stages.length; i++) {
     await runStage(i);
   }
 
-  await cleanup();
+  await finalCleanup();
   printSummary();
 
   process.exit(failedCount > 0 ? 1 : 0);
@@ -215,13 +298,28 @@ async function main() {
 
 process.on("SIGINT", async () => {
   console.log("\n\n收到中断信号，正在清理...");
-  await cleanup();
-  process.exit(1);
+  for (const port of TEST_PORTS) {
+    killProcessesOnPort(port);
+  }
+  await cleanupTestDataFiles();
+  process.exit(130);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("\n\n收到终止信号，正在清理...");
+  for (const port of TEST_PORTS) {
+    killProcessesOnPort(port);
+  }
+  await cleanupTestDataFiles();
+  process.exit(143);
 });
 
 main().catch(async (e) => {
   console.error("\n❌ 验证流程异常:", e.message);
   console.error(e.stack);
-  await cleanup();
+  for (const port of TEST_PORTS) {
+    killProcessesOnPort(port);
+  }
+  await cleanupTestDataFiles();
   process.exit(1);
 });
