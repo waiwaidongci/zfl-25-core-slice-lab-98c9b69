@@ -19,3 +19,8 @@ Thumbs.db
 
 .vscode/
 .idea/
+
+data/*-test-*.json
+data/smoke-test-*.json
+data/verify-*.json
+data/test-*.json

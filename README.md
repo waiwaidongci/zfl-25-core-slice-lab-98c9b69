@@ -8,6 +8,51 @@ npm start
 
 访问`http://localhost:3025`。支持样本创建、切片任务、步骤记录和交付统计。
 
+## 快速开始
+
+### 环境要求
+
+- Node.js 18+（使用 ESM 和原生 `node:test`）
+- 零 npm 依赖，纯原生 Node.js 实现
+
+### 新机器一键验证
+
+在新机器上克隆代码后，运行一条命令即可完成全套本地验证：
+
+```bash
+npm run verify
+```
+
+验证流水线会依次执行：
+1. **代码检查** - 语法校验 + JSON 有效性 + 常见问题扫描
+2. **单元测试** - 各业务模块单元测试（30个用例）
+3. **API烟测** - 核心API端点冒烟测试（17个用例）
+4. **API回归测试** - CSV导入等关键业务回归测试（24个用例）
+
+全部通过后会显示 `🎉 所有验证全部通过！`。
+
+### 日常启动服务
+
+```bash
+npm start
+```
+
+服务启动后访问 `http://localhost:3025`。
+
+数据文件默认位置：`data/core-slices.json`（首次启动自动创建）。
+
+## 可用命令
+
+| 命令 | 说明 |
+|------|------|
+| `npm start` | 启动开发服务器（端口 3025） |
+| `npm test` | 运行所有测试 |
+| `npm run test:unit` | 仅运行单元测试 |
+| `npm run test:smoke` | 仅运行API烟测 |
+| `npm run test:api` | 仅运行API回归测试 |
+| `npm run lint` | 代码质量检查 |
+| `npm run verify` | 一键执行完整验证流水线 |
+
 ## CSV批量导入
 
 系统支持通过CSV文件批量导入岩芯样本和切片任务。
@@ -290,3 +335,107 @@ curl -s -X GET 'http://localhost:3025/api/delivery-dashboard' \
 3. 观察：CORE-012 的 deliveredSlices 变为 3，remainingDeliverable 变为 0
 4. 待 SL-012-D 完成观察后再次标记交付，生成 DLV-007
 5. 验证：CORE-012 自动从「部分交付」分组移动到「已交付」分组，样本状态变为「已交付」
+
+## 故障排查
+
+### 服务无法启动
+
+**端口被占用**
+```
+Error: listen EADDRINUSE: address already in use :::3025
+```
+- 原因：3025 端口已被其他进程占用
+- 解决：
+  1. 查找占用进程：`lsof -i :3025` 或 `lsof -ti:3025 | xargs kill -9`
+  2. 或使用其他端口启动：`PORT=3026 npm start`
+
+**数据文件损坏**
+- 现象：启动后页面报错或数据显示异常
+- 原因：`data/core-slices.json` 文件格式损坏
+- 解决：
+  1. 备份损坏文件：`cp data/core-slices.json data/core-slices.json.bak`
+  2. 删除损坏文件：`rm data/core-slices.json`
+  3. 重新启动服务，系统会自动用种子数据重建
+
+### 验证流水线失败
+
+**单元测试失败**
+- 运行：`npm run test:unit` 查看具体哪个用例失败
+- 常见原因：模块导出变更、函数签名修改、逻辑改动
+
+**API测试失败**
+- 运行：`npm run test:smoke` 或 `npm run test:api`
+- 常见原因：
+  - 端口冲突：检查 3026/3027 端口是否被占用
+  - 测试数据污染：测试结束后未正确清理临时数据文件
+  - API路径或响应结构变更
+
+**端口被测试残留占用**
+- 现象：多次运行测试后端口一直被占用
+- 解决：
+  ```bash
+  lsof -ti:3026 -ti:3027 -ti:3030 | xargs kill -9
+  ```
+  然后重新运行 `npm run verify`
+
+**验证脚本残留测试数据文件**
+- 现象：`data/` 目录下出现 `test-*.json`、`smoke-test-*.json` 等文件
+- 正常情况：测试会自动清理，若异常退出可能残留
+- 手动清理：
+  ```bash
+  rm -f data/*-test-*.json data/smoke-test-*.json data/verify-*.json data/test-*.json
+  ```
+
+### 开发调试技巧
+
+**查看服务端日志**
+- 直接运行 `npm start` 可在终端看到服务器日志
+- API请求和响应目前没有内置日志，可临时添加 `console.log` 调试
+
+**使用独立数据文件开发**
+- 不希望污染生产数据时，可指定独立数据库：
+  ```bash
+  DB_PATH=data/dev-core-slices.json npm start
+  ```
+
+**快速验证代码变更**
+- 修改代码后，推荐运行：
+  ```bash
+  npm run lint && npm run test:unit
+  ```
+- 涉及 API 改动时，运行完整验证：
+  ```bash
+  npm run verify
+  ```
+
+### 数据文件说明
+
+| 文件 | 说明 | 是否纳入版本控制 |
+|------|------|----------------|
+| `data/core-slices.json` | 主数据文件 | 是（含种子数据） |
+| `data/test-*.json` | 测试临时数据 | 否（.gitignore 排除） |
+| `data/smoke-test-*.json` | 烟测临时数据 | 否（.gitignore 排除） |
+| `data/verify-*.json` | 验证流水线临时数据 | 否（.gitignore 排除） |
+
+### 项目结构
+
+```
+.
+├── server.js              # 主服务器（单文件 HTTP + 前端）
+├── package.json           # 项目配置与脚本
+├── data/
+│   └── core-slices.json   # JSON 数据库
+├── lib/                   # 业务逻辑模块
+│   ├── csvParser.js       # CSV 解析与校验
+│   ├── sampleStatus.js    # 样本状态管理
+│   ├── deliveryStats.js   # 交付统计
+│   ├── auditDiff.js       # 审计与差异对比
+│   └── methodDict.js      # 制片方法字典
+├── test/                  # 测试文件
+│   ├── modules.test.js    # 单元测试
+│   ├── smoke.test.js      # API 烟测
+│   └── csv-import.test.js # API 回归测试
+└── scripts/               # 工具脚本
+    ├── lint.js            # 代码检查
+    └── verify.js          # 验证流水线编排
+```
