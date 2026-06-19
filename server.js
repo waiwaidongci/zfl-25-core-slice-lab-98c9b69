@@ -2608,8 +2608,8 @@ const page = `<!doctype html>
         const changed = a !== b;
         if (changesOnly && !changed) return "";
         const rowClass = changed ? "" : "unchanged";
-        const oldDisp = a || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
-        const newDisp = b || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+        const oldDisp = a ? escapeHtml(a) : '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+        const newDisp = b ? escapeHtml(b) : '<span style="color:var(--muted);font-style:italic;">（空）</span>';
         return '<div class="obs-compare-row ' + rowClass + '">' +
           '<div class="field-label">' + OBS_FIELD_LABELS_LOCAL[f] + '</div>' +
           '<div class="old-val">' + oldDisp + '</div>' +
@@ -2618,9 +2618,9 @@ const page = `<!doctype html>
       }).join("");
       const hasChanges = changedFields.size > 0;
       const headerInfo = '<div style="margin-bottom:10px;font-size:12px;color:var(--stone);">' +
-        '<b style="color:var(--danger);">● 旧版</b> ' + (obsA ? (obsA.id + ' · ' + formatObsDate(obsA.at)) : '（无）') +
+        '<b style="color:var(--danger);">● 旧版</b> ' + (obsA ? (escapeHtml(obsA.id) + ' · ' + formatObsDate(obsA.at)) : '（无）') +
         ' &nbsp;→&nbsp; ' +
-        '<b style="color:var(--accent);">● 新版</b> ' + (obsB ? (obsB.id + ' · ' + formatObsDate(obsB.at)) : '（无）') +
+        '<b style="color:var(--accent);">● 新版</b> ' + (obsB ? (escapeHtml(obsB.id) + ' · ' + formatObsDate(obsB.at)) : '（无）') +
         (changesOnly ? (hasChanges ? '（共 ' + changedFields.size + ' 个字段变化）' : '（两版完全一致）') : '') +
       '</div>';
       if (changesOnly && !hasChanges) {
@@ -2628,7 +2628,7 @@ const page = `<!doctype html>
         return;
       }
       containerEl.innerHTML = '<div class="obs-compare-result"><h3>📊 版本对比结果' + (changesOnly ? '（仅显示变化字段）' : '') + '</h3>' + headerInfo +
-        '<div class="obs-compare-headers"><div>字段</div><div>旧版（' + (obsA ? obsA.id : '-') + '）</div><div>新版（' + (obsB ? obsB.id : '-') + '）</div></div>' +
+        '<div class="obs-compare-headers"><div>字段</div><div>旧版（' + (obsA ? escapeHtml(obsA.id) : '-') + '）</div><div>新版（' + (obsB ? escapeHtml(obsB.id) : '-') + '）</div></div>' +
         rowsHtml +
       '</div>';
     }
@@ -3895,8 +3895,8 @@ const page = `<!doctype html>
         const observationId = entry.observationId;
         if (obsDiff && obsDiff.changes && obsDiff.changes.length > 0) {
           const changesHtml = obsDiff.changes.map(c => {
-            const oldVal = c.oldValue || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
-            const newVal = c.newValue || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+            const oldVal = c.oldValue ? escapeHtml(c.oldValue) : '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+            const newVal = c.newValue ? escapeHtml(c.newValue) : '<span style="color:var(--muted);font-style:italic;">（空）</span>';
             return '<div class="audit-obs-diff-row">' +
               '<span class="audit-obs-diff-field">' + escapeHtml(c.label) + '</span>' +
               '<span class="audit-obs-diff-old">' + oldVal + '</span>' +
