@@ -2037,16 +2037,6 @@ const page = `<!doctype html>
         });
       }
 
-      const sampleDeliveryStatuses = [...new Set(validItems.map(v => v.sample.delivery))];
-      if (sampleDeliveryStatuses.length > 1) {
-        consistencyErrors.push({
-          errorCode: "INCONSISTENT_SAMPLE_DELIVERY",
-          errorCategory: "consistency",
-          error: "所选切片所属样本的交付状态不一致，批量推进需选择交付状态相同的样本切片",
-          details: { deliveryStatusesFound: sampleDeliveryStatuses }
-        });
-      }
-
       const sampleStatuses = [...new Set(validItems.map(v => v.sample.status))];
       if (sampleStatuses.length > 1) {
         consistencyErrors.push({
@@ -2082,7 +2072,6 @@ const page = `<!doctype html>
         consistencyErrors: [],
         fromStep,
         targetStep,
-        sampleDelivery: sampleDeliveryStatuses[0],
         sampleStatus: sampleStatuses[0],
         validCount: validItems.length,
         errorCount: sliceErrors.length
@@ -4413,16 +4402,6 @@ const server = http.createServer(async (req, res) => {
           errorCategory: "consistency",
           error: "所选切片处于不同工序步骤，批量推进需选择同一工序步骤的切片",
           details: { stepsFound: fromSteps }
-        });
-      }
-
-      const sampleDeliveryStatuses = [...new Set(validItems.map(v => v.sample.delivery))];
-      if (sampleDeliveryStatuses.length > 1) {
-        consistencyErrors.push({
-          errorCode: "INCONSISTENT_SAMPLE_DELIVERY",
-          errorCategory: "consistency",
-          error: "所选切片所属样本的交付状态不一致，批量推进需选择交付状态相同的样本切片",
-          details: { deliveryStatusesFound: sampleDeliveryStatuses }
         });
       }
 
