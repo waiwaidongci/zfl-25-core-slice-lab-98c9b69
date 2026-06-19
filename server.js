@@ -1073,7 +1073,7 @@ const page = `<!doctype html>
     .csv-import-result.error h3 { color: var(--danger); }
     .csv-import-result ul { margin: 8px 0 0; padding-left: 20px; }
     .csv-import-result li { font-size: 13px; margin: 3px 0; }
-    .stats-overview { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+    .stats-overview { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
     .stats-kpi { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; }
     .stats-kpi strong { display:block; font-size:28px; color:var(--accent); }
     .stats-kpi span { font-size:12px; color:var(--muted); }
@@ -1110,6 +1110,32 @@ const page = `<!doctype html>
     .stats-inner-table th { color:var(--stone); font-weight:600; background:#f0f4ec; }
     .stats-inner-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
     .stats-step-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; vertical-align:middle; }
+    .stats-step-dot-abnormal { background:var(--danger); box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--danger); }
+    .stats-kpi-abnormal strong { color:var(--danger) !important; }
+    .abnormal-config-info { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px; background:#fff8e6; border:1px solid #ffe08a; border-radius:6px; margin-bottom:12px; font-size:13px; color:#856404; }
+    .abnormal-config-label { font-weight:600; }
+    .abnormal-config-item b { color:var(--danger); }
+    .abnormal-config-sep { color:#c5a75a; }
+    .abnormal-config-count { margin-left:auto; font-weight:600; }
+    .abnormal-config-count b { color:var(--danger); font-size:16px; }
+    .abnormal-table .abnormal-row { background:#fff5f5; }
+    .abnormal-table .abnormal-row:hover td { background:#ffe8e8 !important; }
+    .abnormal-step-badge { display:inline-block; padding:2px 8px; background:var(--danger); color:#fff; border-radius:4px; font-size:11px; font-weight:600; }
+    .abnormal-duration { color:var(--danger); font-weight:700; }
+    .abnormal-reasons { max-width:240px; }
+    .abnormal-reason-tag { display:inline-block; padding:2px 6px; margin:2px 4px 2px 0; background:#fde2e2; color:#a83232; border-radius:3px; font-size:11px; }
+    .abnormal-badge { display:inline-block; padding:1px 6px; background:var(--danger); color:#fff; border-radius:10px; font-size:11px; font-weight:600; vertical-align:middle; margin-left:4px; }
+    .stats-timing-abnormal td { background:#fff8f8 !important; }
+    .stats-timing-abnormal:hover td { background:#fff0f0 !important; }
+    .abnormal-step-row { background:#fff5f5; }
+    .abnormal-step-row td { color:var(--danger); }
+    .abnormal-reason-tags { margin-top:4px; }
+    .abnormal-reason-tags .abnormal-reason-tag { font-size:10px; }
+    .card-abnormal { border-color:var(--danger) !important; box-shadow:0 0 0 2px rgba(239, 68, 68, 0.1); }
+    .card-abnormal-banner { background:linear-gradient(135deg, #fee2e2, #fecaca); color:#991b1b; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:600; margin-top:4px; }
+    .slice-abnormal { border-top-color:var(--danger) !important; position:relative; }
+    .slice-abnormal-badge { color:var(--danger); font-size:14px; font-weight:700; vertical-align:middle; }
+    .slice-abnormal-tag { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; padding:4px 8px; border-radius:4px; font-size:11px; margin:6px 0; font-weight:500; }
     .method-config-btn { background:var(--stone); padding:8px 14px; }
     .method-modal { width: 680px; }
     .method-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -1413,6 +1439,11 @@ const page = `<!doctype html>
           </div>
         </div>
         <div class="stats-overview" id="stats-overview"></div>
+        <div class="stats-section">
+          <h2>异常耗时识别</h2>
+          <div class="stats-abnormal-config" id="stats-abnormal-config"></div>
+          <div id="stats-abnormal-list"></div>
+        </div>
         <div class="stats-section">
           <h2>样本维度耗时汇总</h2>
           <div id="stats-sample-timings"></div>
@@ -1981,6 +2012,105 @@ const page = `<!doctype html>
         return { text: "下一步：制片人员推进工序" + (!canAdvance && currentRole ? "（当前角色无权操作）" : ""), cls: "next-hint next-hint-producer" };
       }
       return { text: "", cls: "" };
+    }
+
+    const ABNORMAL_MULTIPLIER = 2;
+    const ABNORMAL_FIXED_DAYS = 3;
+    const ABNORMAL_FIXED_HOURS = ABNORMAL_FIXED_DAYS * 24;
+
+    function computeStepAverages(sampleList) {
+      const stepSums = {};
+      const stepCounts = {};
+      steps.forEach(s => { stepSums[s] = 0; stepCounts[s] = 0; });
+      const now = Date.now();
+      sampleList.forEach(sample => {
+        if (!sample.slices) return;
+        sample.slices.forEach(slice => {
+          const logs = slice.logs || [];
+          const parsedLogs = logs.map(log => {
+            const t = new Date(log.at).getTime();
+            return isNaN(t) ? null : { ...log, _time: t };
+          }).filter(l => l !== null && l.step).sort((a, b) => a._time - b._time);
+          for (let i = 0; i < parsedLogs.length; i++) {
+            const currentStep = parsedLogs[i].step;
+            const currentTime = parsedLogs[i]._time;
+            let nextTime;
+            if (i < parsedLogs.length - 1) {
+              nextTime = parsedLogs[i + 1]._time;
+            } else {
+              nextTime = now;
+            }
+            const dwellHours = (nextTime - currentTime) / (1000 * 60 * 60);
+            if (stepSums[currentStep] !== undefined) {
+              stepSums[currentStep] += dwellHours;
+              stepCounts[currentStep]++;
+            }
+          }
+        });
+      });
+      const avgs = {};
+      steps.forEach(s => {
+        avgs[s] = stepCounts[s] > 0 ? stepSums[s] / stepCounts[s] : 0;
+      });
+      return avgs;
+    }
+
+    function getSliceAbnormalInfo(slice, stepAvgs) {
+      const logs = slice.logs || [];
+      const parsedLogs = logs.map(log => {
+        const t = new Date(log.at).getTime();
+        return isNaN(t) ? null : { ...log, _time: t };
+      }).filter(l => l !== null && l.step).sort((a, b) => a._time - b._time);
+      const now = Date.now();
+      const abnormalSteps = [];
+      for (let i = 0; i < parsedLogs.length; i++) {
+        const currentStep = parsedLogs[i].step;
+        const currentTime = parsedLogs[i]._time;
+        let nextTime;
+        if (i < parsedLogs.length - 1) {
+          nextTime = parsedLogs[i + 1]._time;
+        } else {
+          nextTime = now;
+        }
+        const dwellHours = (nextTime - currentTime) / (1000 * 60 * 60);
+        const stepAvg = stepAvgs[currentStep] || 0;
+        const exceedsAvg = stepAvg > 0 && dwellHours > stepAvg * ABNORMAL_MULTIPLIER;
+        const exceedsFixed = dwellHours > ABNORMAL_FIXED_HOURS;
+        if (exceedsAvg || exceedsFixed) {
+          abnormalSteps.push({
+            step: currentStep,
+            dwellHours,
+            exceedsAvg,
+            exceedsFixed,
+            stepAvg
+          });
+        }
+      }
+      return {
+        hasAbnormal: abnormalSteps.length > 0,
+        abnormalStepCount: abnormalSteps.length,
+        abnormalSteps
+      };
+    }
+
+    function getSampleAbnormalInfo(sample, stepAvgs) {
+      let totalAbnormal = 0;
+      const abnormalSliceIds = [];
+      if (sample.slices) {
+        sample.slices.forEach(slice => {
+          const info = getSliceAbnormalInfo(slice, stepAvgs);
+          if (info.hasAbnormal) {
+            totalAbnormal += info.abnormalStepCount;
+            abnormalSliceIds.push(slice.id);
+          }
+        });
+      }
+      return {
+        hasAbnormal: totalAbnormal > 0,
+        totalAbnormalSteps: totalAbnormal,
+        abnormalSliceCount: abnormalSliceIds.length,
+        abnormalSliceIds
+      };
     }
 
     function canSliceAdvance(slice, sample, deliveredSliceIds) {
@@ -2821,7 +2951,13 @@ const page = `<!doctype html>
       const filters = getFilters();
       const filtered = applyFilters(samples, filters);
       stats.innerHTML = statuses.map(s => '<div class="stat"><span>'+s+'</span><strong>'+filtered.filter(item => item.status === s).length+'</strong></div>').join("");
-      resultCountEl.textContent = filtered.length ? "筛选结果：共 " + filtered.length + " 个样本" : "没有符合条件的样本";
+      const stepAvgs = computeStepAverages(filtered);
+      let abnormalSampleCount = 0;
+      filtered.forEach(s => {
+        const info = getSampleAbnormalInfo(s, stepAvgs);
+        if (info.hasAbnormal) abnormalSampleCount++;
+      });
+      resultCountEl.innerHTML = filtered.length ? "筛选结果：共 " + filtered.length + " 个样本" + (abnormalSampleCount > 0 ? '，其中 <b style="color:var(--danger);">' + abnormalSampleCount + '</b> 个含异常耗时' : '') : "没有符合条件的样本";
       if (!filtered.length) {
         samplesEl.innerHTML = '<div class="empty">没有符合筛选条件的样本，请调整筛选条件。</div>';
         return;
@@ -2831,6 +2967,7 @@ const page = `<!doctype html>
       deliveries.forEach(d => d.slices.forEach(s => allDeliveredSliceIds.add(s.id)));
       
       samplesEl.innerHTML = filtered.map(sample => {
+        const sampleAbnormal = getSampleAbnormalInfo(sample, stepAvgs);
         const allObservations = [];
         sample.slices.forEach(slice => {
           const obs = slice.observations && slice.observations.length ? slice.observations[slice.observations.length - 1] : null;
@@ -2850,6 +2987,9 @@ const page = `<!doctype html>
           }
           return item.sliceId + '[' + parts.join('；') + ']';
         }).join(' ') + '</div>' : '';
+        const sampleAbnormalHtml = sampleAbnormal.hasAbnormal
+          ? '<div class="card-abnormal-banner" title="' + sampleAbnormal.abnormalSliceCount + '个切片存在异常耗时，共' + sampleAbnormal.totalAbnormalSteps + '个异常工序">⚠ 存在异常耗时（' + sampleAbnormal.abnormalSliceCount + '片/' + sampleAbnormal.totalAbnormalSteps + '步）</div>'
+          : '';
         const deliveryHistory = deliveries.filter(d => d.sampleId === sample.id);
         const deliveredSliceIds = new Set();
         deliveryHistory.forEach(d => d.slices.forEach(s => deliveredSliceIds.add(s.id)));
@@ -2862,7 +3002,8 @@ const page = `<!doctype html>
         }
         
         const deliveryHistoryHtml = deliveryHistory.length ? '<div class="meta" style="margin-top:6px;"><b style="color:var(--accent);">历史交付（'+deliveryHistory.length+'）：</b>' + deliveryHistory.map(d => d.id + '（' + (d.deliveryType === 'partial' ? '部分' : '全部') + '，' + d.slices.length + '片，' + formatObsDate(d.deliveredAt) + '）').join('、') + '</div>' : '';
-        return '<article class="card"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+deliveryBadge+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + summaryHtml + deliveryHistoryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
+        return '<article class="card' + (sampleAbnormal.hasAbnormal ? ' card-abnormal' : '') + '"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+deliveryBadge+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + sampleAbnormalHtml + summaryHtml + deliveryHistoryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
+          const sliceAbnormal = getSliceAbnormalInfo(slice, stepAvgs);
           const observations = slice.observations || [];
           const lastObs = observations.length ? observations[observations.length - 1] : null;
           const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
@@ -2876,7 +3017,10 @@ const page = `<!doctype html>
           const isSliceDelivered = deliveredSliceIds.has(slice.id);
           const nextHint = getNextStepHint(slice.status, observations.length > 0 || legacyObs.length > 0, sample.delivery, isSliceDelivered);
           const nextHintHtml = nextHint.text ? '<div class="'+nextHint.cls+'">'+nextHint.text+'</div>' : '';
-          return '<div class="slice"><b>'+slice.id+'</b><div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div>'+nextHintHtml+'<select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button>' + obsBtn + obsSummaryHtml + '<div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>';
+          const sliceAbnormalHtml = sliceAbnormal.hasAbnormal
+            ? '<div class="slice-abnormal-tag" title="' + sliceAbnormal.abnormalStepCount + '个异常工序">' + sliceAbnormal.abnormalSteps.map(a => a.step + '（' + (a.dwellHours / 24).toFixed(1) + '天）').join('、') + ' 超时</div>'
+            : '';
+          return '<div class="slice' + (sliceAbnormal.hasAbnormal ? ' slice-abnormal' : '') + '"><b>'+slice.id+'</b> ' + (sliceAbnormal.hasAbnormal ? '<span class="slice-abnormal-badge" title="异常耗时">⚠</span>' : '') + '<div class="meta">'+slice.method+' · 当前步骤 '+slice.status+'</div>'+sliceAbnormalHtml+nextHintHtml+'<select data-step="'+sample.id+'|'+slice.id+'">'+steps.map(step => '<option>'+step+'</option>').join("")+'</select><textarea data-note="'+sample.id+'|'+slice.id+'" placeholder="步骤备注或观察结果"></textarea><button data-log="'+sample.id+'|'+slice.id+'">记录步骤</button>' + obsBtn + obsSummaryHtml + '<div class="meta">'+slice.logs.map(log => log.step+"："+log.note).join(" / ")+'</div></div>';
         }).join("")+'<button data-deliver="'+sample.id+'">标记交付</button></article>';
       }).join("");
       document.querySelectorAll("[data-step]").forEach(sel => {
@@ -3485,18 +3629,51 @@ const page = `<!doctype html>
       const sampleTimings = data.sampleTimings || [];
       const stepAvgs = data.stepAverages || [];
       const backlog = data.ownerBacklog || [];
+      const abnormalSteps = data.abnormalSteps || [];
+      const abnormalConfig = data.abnormalConfig || { multiplier: 2, fixedDays: 3 };
 
       const totalSlices = timings.length;
       const completedSlices = timings.filter(t => t.isComplete).length;
       const validTimings = timings.filter(t => t.totalHours > 0);
       const avgTotalHours = validTimings.length > 0 ? validTimings.reduce((s, t) => s + t.totalHours, 0) / validTimings.length : 0;
       const maxTotalHours = validTimings.length > 0 ? Math.max(...validTimings.map(t => t.totalHours)) : 0;
+      const abnormalSlicesCount = timings.filter(t => t.hasAbnormalStep).length;
 
       document.querySelector("#stats-overview").innerHTML =
         '<div class="stats-kpi"><strong>' + totalSlices + '</strong><span>切片总数</span></div>' +
         '<div class="stats-kpi"><strong>' + completedSlices + '</strong><span>已完成观察</span></div>' +
         '<div class="stats-kpi"><strong>' + formatHours(avgTotalHours) + '</strong><span>平均制片耗时</span></div>' +
-        '<div class="stats-kpi"><strong>' + formatHours(maxTotalHours) + '</strong><span>最长制片耗时</span></div>';
+        '<div class="stats-kpi"><strong>' + formatHours(maxTotalHours) + '</strong><span>最长制片耗时</span></div>' +
+        '<div class="stats-kpi stats-kpi-abnormal"><strong>' + abnormalSlicesCount + '</strong><span>异常切片数</span></div>';
+
+      document.querySelector("#stats-abnormal-config").innerHTML =
+        '<div class="abnormal-config-info">' +
+        '<span class="abnormal-config-label">判定规则：</span>' +
+        '<span class="abnormal-config-item">超过工序平均值 <b>' + abnormalConfig.multiplier + '</b> 倍</span>' +
+        '<span class="abnormal-config-sep">或</span>' +
+        '<span class="abnormal-config-item">超过 <b>' + abnormalConfig.fixedDays + '</b> 天固定阈值</span>' +
+        '<span class="abnormal-config-count">共 <b>' + abnormalSteps.length + '</b> 条异常记录</span>' +
+        '</div>';
+
+      document.querySelector("#stats-abnormal-list").innerHTML = abnormalSteps.length
+        ? '<div class="stats-timing-scroll"><table class="stats-table abnormal-table"><thead><tr><th>切片编号</th><th>样本编号</th><th>项目</th><th>负责人</th><th>方法</th><th>异常工序</th><th>→ 下一工序</th><th>停留时长</th><th>开始时间</th><th>结束时间</th><th>异常原因</th></tr></thead><tbody>' +
+          abnormalSteps.map(a => {
+            return '<tr class="abnormal-row">' +
+              '<td><b>' + a.sliceId + '</b></td>' +
+              '<td>' + a.sampleId + '</td>' +
+              '<td>' + a.project + '</td>' +
+              '<td>' + a.owner + '</td>' +
+              '<td>' + a.method + '</td>' +
+              '<td><span class="abnormal-step-badge">' + a.step + '</span></td>' +
+              '<td>' + (a.toStep || '—') + '</td>' +
+              '<td class="num"><span class="abnormal-duration">' + formatHours(a.dwellHours) + '</span></td>' +
+              '<td>' + formatObsDate(a.fromAt) + '</td>' +
+              '<td>' + formatObsDate(a.toAt) + '</td>' +
+              '<td class="abnormal-reasons">' + a.reasons.map(r => '<span class="abnormal-reason-tag">' + r + '</span>').join('') + '</td>' +
+              '</tr>';
+          }).join("") +
+          '</tbody></table></div>'
+        : '<div class="empty">暂无异常耗时记录，所有工序停留时间均在正常范围内。</div>';
 
       const sortedSampleTimings = [...sampleTimings].sort((a, b) => b.totalHours - a.totalHours);
       document.querySelector("#stats-sample-timings").innerHTML = sortedSampleTimings.length
@@ -3543,10 +3720,13 @@ const page = `<!doctype html>
             const isComplete = !!t.isComplete;
             const hasData = !!t.firstAt;
             const hasDetails = t.stepDetails && t.stepDetails.length > 0;
+            const hasAbnormal = !!t.hasAbnormalStep;
+            const abnormalCount = t.abnormalStepCount || 0;
             const expandIcon = hasDetails ? '<span class="stats-expand-icon" data-slice-expand="' + t.sliceId + '">▸</span>' : '<span class="meta">—</span>';
-            let mainRow = '<tr class="stats-timing-main' + (hasDetails ? ' stats-expandable' : '') + '" data-slice-id="' + t.sliceId + '">' +
+            const abnormalBadge = hasAbnormal ? '<span class="abnormal-badge" title="包含' + abnormalCount + '个异常工序">⚠ ' + abnormalCount + '</span>' : '';
+            let mainRow = '<tr class="stats-timing-main' + (hasDetails ? ' stats-expandable' : '') + (hasAbnormal ? ' stats-timing-abnormal' : '') + '" data-slice-id="' + t.sliceId + '">' +
               '<td>' + expandIcon + '</td>' +
-              '<td><b>' + t.sliceId + '</b></td>' +
+              '<td><b>' + t.sliceId + '</b> ' + abnormalBadge + '</td>' +
               '<td>' + t.sampleId + '</td>' +
               '<td>' + t.project + '</td>' +
               '<td>' + t.owner + '</td>' +
@@ -3563,15 +3743,22 @@ const page = `<!doctype html>
               detailRow = '<tr class="stats-step-detail-row" id="detail-' + t.sliceId + '" style="display:none;"><td colspan="12"><div class="stats-step-detail-wrap"><table class="stats-inner-table"><thead><tr><th>步骤</th><th>→ 下一工序</th><th>开始时间</th><th>结束时间</th><th>停留时间</th></tr></thead><tbody>' +
                 t.stepDetails.map(d => {
                   const dwellH = d.dwellHours;
-                  let dwellColor = '';
-                  if (dwellH >= 48) dwellColor = ' style="color:var(--danger);"';
-                  else if (dwellH >= 24) dwellColor = ' style="color:#856404;"';
-                  return '<tr>' +
-                    '<td><span class="stats-step-dot"></span>' + d.from + '</td>' +
+                  const isAbnormal = !!d.isAbnormal;
+                  const abnormalReasons = d.abnormalReasons || [];
+                  let rowClass = isAbnormal ? 'abnormal-step-row' : '';
+                  let dwellHtml = formatHours(dwellH);
+                  if (isAbnormal) {
+                    dwellHtml = '<span class="abnormal-duration">' + dwellHtml + '</span>';
+                  }
+                  const reasonHtml = isAbnormal && abnormalReasons.length
+                    ? '<div class="abnormal-reason-tags">' + abnormalReasons.map(r => '<span class="abnormal-reason-tag">' + r + '</span>').join('') + '</div>'
+                    : '';
+                  return '<tr class="' + rowClass + '">' +
+                    '<td><span class="stats-step-dot' + (isAbnormal ? ' stats-step-dot-abnormal' : '') + '"></span>' + d.from + '</td>' +
                     '<td>' + (d.to || '—') + '</td>' +
                     '<td>' + formatObsDate(d.fromAt) + '</td>' +
                     '<td>' + formatObsDate(d.toAt) + '</td>' +
-                    '<td class="num"' + dwellColor + '>' + formatHours(dwellH) + '</td>' +
+                    '<td class="num">' + dwellHtml + reasonHtml + '</td>' +
                     '</tr>';
                 }).join("") +
                 '</tbody></table></div></td></tr>';
@@ -5576,6 +5763,53 @@ const server = http.createServer(async (req, res) => {
         count: stepDwellCounts[step]
       }));
 
+      const abnormalMultiplier = parseFloat(url.searchParams.get("abnormalMultiplier")) || 2;
+      const abnormalFixedHours = (parseFloat(url.searchParams.get("abnormalFixedDays")) || 3) * 24;
+      const stepAvgMap = {};
+      stepAverages.forEach(sa => { stepAvgMap[sa.step] = sa.avgHours; });
+
+      const abnormalSteps = [];
+      allSliceTimings.forEach(timing => {
+        let hasAbnormal = false;
+        if (timing.stepDetails && timing.stepDetails.length > 0) {
+          timing.stepDetails.forEach(detail => {
+            const stepAvg = stepAvgMap[detail.from] || 0;
+            const exceedsAverage = stepAvg > 0 && detail.dwellHours > stepAvg * abnormalMultiplier;
+            const exceedsFixed = detail.dwellHours > abnormalFixedHours;
+            detail.isAbnormal = exceedsAverage || exceedsFixed;
+            detail.abnormalReasons = [];
+            if (exceedsAverage) {
+              detail.abnormalReasons.push("超过工序平均值" + abnormalMultiplier + "倍（平均" + (stepAvg / 24).toFixed(1) + "天）");
+            }
+            if (exceedsFixed) {
+              detail.abnormalReasons.push("超过固定阈值" + (abnormalFixedHours / 24) + "天");
+            }
+            if (detail.isAbnormal) {
+              hasAbnormal = true;
+              abnormalSteps.push({
+                sliceId: timing.sliceId,
+                sampleId: timing.sampleId,
+                project: timing.project,
+                owner: timing.owner,
+                method: timing.method,
+                step: detail.from,
+                toStep: detail.to,
+                dwellHours: detail.dwellHours,
+                fromAt: detail.fromAt,
+                toAt: detail.toAt,
+                reasons: detail.abnormalReasons,
+                isComplete: timing.isComplete,
+                status: timing.status
+              });
+            }
+          });
+        }
+        timing.hasAbnormalStep = hasAbnormal;
+        timing.abnormalStepCount = timing.stepDetails ? timing.stepDetails.filter(d => d.isAbnormal).length : 0;
+      });
+
+      abnormalSteps.sort((a, b) => b.dwellHours - a.dwellHours);
+
       const backlogList = Object.values(ownerBacklog);
 
       const projects = [...new Set(db.samples.map(s => s.project))].sort();
@@ -5586,6 +5820,11 @@ const server = http.createServer(async (req, res) => {
         sampleTimings,
         stepAverages,
         ownerBacklog: backlogList,
+        abnormalSteps,
+        abnormalConfig: {
+          multiplier: abnormalMultiplier,
+          fixedDays: abnormalFixedHours / 24
+        },
         projects,
         owners
       });
