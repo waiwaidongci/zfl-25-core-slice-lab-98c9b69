@@ -619,6 +619,31 @@ function recordAudit(db, { sampleId, action, operator, sourceApi, beforeSample, 
   return entry;
 }
 
+const OBS_FIELDS = ["lithology", "minerals", "texture", "remark"];
+const OBS_FIELD_LABELS = {
+  lithology: "岩性",
+  minerals: "矿物",
+  texture: "结构构造",
+  remark: "备注"
+};
+
+function compareObservations(obsA, obsB) {
+  const changes = [];
+  OBS_FIELDS.forEach(field => {
+    const a = (obsA && obsA[field]) || "";
+    const b = (obsB && obsB[field]) || "";
+    if (a !== b) {
+      changes.push({
+        field,
+        label: OBS_FIELD_LABELS[field],
+        oldValue: a,
+        newValue: b
+      });
+    }
+  });
+  return changes;
+}
+
 function validateSliceId(id, existingIds = []) {
   const errors = [];
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -1153,6 +1178,30 @@ const page = `<!doctype html>
     .slices-summary-list { font-size: 12px; color: var(--stone); }
     .slices-summary-list div { padding: 2px 0; }
     .view-audit { padding-bottom: 20px; }
+    .obs-compare-toggle { margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+    .obs-compare-toggle button { padding: 6px 12px; font-size: 12px; }
+    .obs-history-item.compare-mode { border-left: 3px solid var(--accent); padding-left: 10px; cursor: pointer; }
+    .obs-history-item.selected { background: #fff8e6; border-left-color: #e6b800; }
+    .obs-history-item .compare-checkbox { margin-right: 6px; }
+    .obs-compare-result { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-top: 12px; }
+    .obs-compare-result h3 { margin: 0 0 12px; font-size: 15px; color: var(--stone); }
+    .obs-compare-headers { display: grid; grid-template-columns: 100px 1fr 1fr; gap: 10px; font-size: 12px; color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 8px; font-weight: 600; }
+    .obs-compare-row { display: grid; grid-template-columns: 100px 1fr 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); align-items: start; font-size: 13px; }
+    .obs-compare-row:last-child { border-bottom: 0; }
+    .obs-compare-row .field-label { color: var(--stone); font-weight: 600; }
+    .obs-compare-row .old-val { background: #fdf2ef; padding: 6px 8px; border-radius: 4px; color: var(--danger); white-space: pre-wrap; word-break: break-all; }
+    .obs-compare-row .new-val { background: #edf5e8; padding: 6px 8px; border-radius: 4px; color: var(--accent); white-space: pre-wrap; word-break: break-all; }
+    .obs-compare-row.unchanged .old-val, .obs-compare-row.unchanged .new-val { background: #fafcf7; color: var(--ink); }
+    .obs-compare-empty { text-align: center; color: var(--muted); padding: 20px; font-size: 13px; }
+    .obs-compare-banner { background: #fff8e6; border: 1px solid #e6b800; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; color: #856404; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .obs-compare-banner button { padding: 4px 10px; font-size: 12px; }
+    .audit-obs-diff { background: #fafcf7; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-top: 10px; }
+    .audit-obs-diff h4 { margin: 0 0 8px; font-size: 13px; color: var(--stone); }
+    .audit-obs-diff-row { display: flex; gap: 8px; padding: 4px 0; font-size: 12px; align-items: flex-start; }
+    .audit-obs-diff-field { font-weight: 600; color: var(--stone); min-width: 64px; flex-shrink: 0; }
+    .audit-obs-diff-old { color: var(--danger); background: #fdf2ef; padding: 2px 6px; border-radius: 3px; text-decoration: line-through; }
+    .audit-obs-diff-arrow { color: var(--muted); flex-shrink: 0; }
+    .audit-obs-diff-new { color: var(--accent); background: #edf5e8; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -2540,6 +2589,50 @@ const page = `<!doctype html>
       });
     }
 
+    const OBS_FIELD_LABELS_LOCAL = { lithology: "岩性", minerals: "矿物", texture: "结构构造", remark: "备注" };
+    const OBS_FIELDS_LOCAL = ["lithology", "minerals", "texture", "remark"];
+
+    function renderObsCompareResult(obsA, obsB, containerEl, changesOnly) {
+      const headers = OBS_FIELDS_LOCAL.map(f => OBS_FIELD_LABELS_LOCAL[f]);
+      const changedFields = new Set();
+      if (changesOnly) {
+        OBS_FIELDS_LOCAL.forEach(f => {
+          const a = (obsA && obsA[f]) || "";
+          const b = (obsB && obsB[f]) || "";
+          if (a !== b) changedFields.add(f);
+        });
+      }
+      const rowsHtml = OBS_FIELDS_LOCAL.map(f => {
+        const a = (obsA && obsA[f]) || "";
+        const b = (obsB && obsB[f]) || "";
+        const changed = a !== b;
+        if (changesOnly && !changed) return "";
+        const rowClass = changed ? "" : "unchanged";
+        const oldDisp = a || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+        const newDisp = b || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+        return '<div class="obs-compare-row ' + rowClass + '">' +
+          '<div class="field-label">' + OBS_FIELD_LABELS_LOCAL[f] + '</div>' +
+          '<div class="old-val">' + oldDisp + '</div>' +
+          '<div class="new-val">' + newDisp + '</div>' +
+        '</div>';
+      }).join("");
+      const hasChanges = changedFields.size > 0;
+      const headerInfo = '<div style="margin-bottom:10px;font-size:12px;color:var(--stone);">' +
+        '<b style="color:var(--danger);">● 旧版</b> ' + (obsA ? (obsA.id + ' · ' + formatObsDate(obsA.at)) : '（无）') +
+        ' &nbsp;→&nbsp; ' +
+        '<b style="color:var(--accent);">● 新版</b> ' + (obsB ? (obsB.id + ' · ' + formatObsDate(obsB.at)) : '（无）') +
+        (changesOnly ? (hasChanges ? '（共 ' + changedFields.size + ' 个字段变化）' : '（两版完全一致）') : '') +
+      '</div>';
+      if (changesOnly && !hasChanges) {
+        containerEl.innerHTML = '<div class="obs-compare-result"><h3>📊 版本对比结果</h3>' + headerInfo + '<div class="obs-compare-empty">两版观察记录完全一致，没有字段变化。</div></div>';
+        return;
+      }
+      containerEl.innerHTML = '<div class="obs-compare-result"><h3>📊 版本对比结果' + (changesOnly ? '（仅显示变化字段）' : '') + '</h3>' + headerInfo +
+        '<div class="obs-compare-headers"><div>字段</div><div>旧版（' + (obsA ? obsA.id : '-') + '）</div><div>新版（' + (obsB ? obsB.id : '-') + '）</div></div>' +
+        rowsHtml +
+      '</div>';
+    }
+
     function openObservationModal(sampleId, sliceId) {
       const sample = samples.find(s => s.id === sampleId);
       if (!sample) return;
@@ -2553,15 +2646,151 @@ const page = `<!doctype html>
       mask.className = "modal-mask";
       const modal = document.createElement("div");
       modal.className = "modal wide";
+      let compareMode = false;
+      let selectedObsIds = [];
+      const obsOrderedDesc = observations.slice().reverse();
       let historyHtml = "";
       if (observations.length > 0) {
-        historyHtml = '<div class="obs-history"><h3 style="margin:0 0 8px;font-size:14px;color:var(--stone);">历史观察记录（共 ' + observations.length + ' 条）</h3>' + observations.slice().reverse().map(obs => '<div class="obs-history-item"><div class="obs-header"><b>' + obs.id + '</b><span class="obs-date">' + formatObsDate(obs.at) + '</span></div>' + (obs.lithology ? '<div class="obs-row"><b>岩性：</b>' + obs.lithology + '</div>' : '') + (obs.minerals ? '<div class="obs-row"><b>矿物：</b>' + obs.minerals + '</div>' : '') + (obs.texture ? '<div class="obs-row"><b>结构构造：</b>' + obs.texture + '</div>' : '') + (obs.remark ? '<div class="obs-row"><b>备注：</b>' + obs.remark + '</div>' : '') + '</div>').join("") + '</div>';
+        const canCompare = observations.length >= 2;
+        const toggleHtml = canCompare ? '<div class="obs-compare-toggle"><button type="button" class="secondary" id="obs-compare-toggle">🔀 开启版本对比</button><span id="obs-compare-hint" style="font-size:12px;color:var(--muted);display:none;"></span></div>' : '';
+        const bannerHtml = canCompare ? '<div id="obs-compare-banner" style="display:none;" class="obs-compare-banner"></div>' : '';
+        historyHtml = '<div class="obs-history"><h3 style="margin:0 0 8px;font-size:14px;color:var(--stone);">历史观察记录（共 ' + observations.length + ' 条）</h3>' +
+          toggleHtml + bannerHtml +
+          '<div id="obs-history-list">' +
+          obsOrderedDesc.map((obs, idx) => {
+            const revIdx = observations.length - 1 - idx;
+            return '<div class="obs-history-item" data-obs-id="' + obs.id + '" data-obs-index="' + revIdx + '">' +
+              '<div class="obs-header">' +
+                '<b>' + obs.id + '</b>' +
+                '<span class="obs-date">' + formatObsDate(obs.at) + '</span>' +
+              '</div>' +
+              (obs.lithology ? '<div class="obs-row"><b>岩性：</b>' + escapeHtml(obs.lithology) + '</div>' : '') +
+              (obs.minerals ? '<div class="obs-row"><b>矿物：</b>' + escapeHtml(obs.minerals) + '</div>' : '') +
+              (obs.texture ? '<div class="obs-row"><b>结构构造：</b>' + escapeHtml(obs.texture) + '</div>' : '') +
+              (obs.remark ? '<div class="obs-row"><b>备注：</b>' + escapeHtml(obs.remark) + '</div>' : '') +
+            '</div>';
+          }).join("") +
+          '</div>' +
+          '<div id="obs-compare-result-container"></div>' +
+        '</div>';
       } else if (hasLegacyOnly) {
-        historyHtml = '<div class="obs-history"><h3 style="margin:0 0 8px;font-size:14px;color:var(--stone);">历史观察记录</h3><div class="obs-history-item"><div class="obs-header"><b>历史记录</b></div><div class="obs-row">' + legacyObs + '</div></div></div>';
+        historyHtml = '<div class="obs-history"><h3 style="margin:0 0 8px;font-size:14px;color:var(--stone);">历史观察记录</h3><div class="obs-history-item"><div class="obs-header"><b>历史记录</b></div><div class="obs-row">' + escapeHtml(legacyObs) + '</div></div></div>';
       }
-      modal.innerHTML = '<h2>观察结果归档 — ' + slice.id + '</h2><div class="meta">' + sample.project + ' · ' + sample.borehole + ' · ' + sample.coreBox + ' · ' + slice.method + '</div><div style="margin-top:14px;"><label>岩性描述</label><textarea id="obs-lithology" placeholder="如：中细粒砂岩、硅化蚀变岩、灰岩等">' + (lastObs ? (lastObs.lithology || "") : "") + '</textarea></div><div><label>矿物组合</label><textarea id="obs-minerals" placeholder="如：石英70%+长石15%+黄铁矿10%+其他5%">' + (lastObs ? (lastObs.minerals || "") : "") + '</textarea></div><div><label>结构构造</label><textarea id="obs-texture" placeholder="如：他形晶粒结构，浸染状构造；晶粒结构，块状构造">' + (lastObs ? (lastObs.texture || "") : "") + '</textarea></div><div><label>备注</label><textarea id="obs-remark" placeholder="其他观察记录或补充说明">' + (lastObs ? (lastObs.remark || "") : (hasLegacyOnly ? legacyObs : "")) + '</textarea></div><div id="obs-alert" style="margin-top:10px;"></div>' + historyHtml + '<div class="modal-footer"><button type="button" class="secondary" id="obs-cancel">取消</button><button type="button" id="obs-save">保存观察记录</button></div>';
+      modal.innerHTML = '<h2>观察结果归档 — ' + slice.id + '</h2><div class="meta">' + sample.project + ' · ' + sample.borehole + ' · ' + sample.coreBox + ' · ' + slice.method + '</div><div style="margin-top:14px;"><label>岩性描述</label><textarea id="obs-lithology" placeholder="如：中细粒砂岩、硅化蚀变岩、灰岩等">' + (lastObs ? escapeHtml(lastObs.lithology || "") : "") + '</textarea></div><div><label>矿物组合</label><textarea id="obs-minerals" placeholder="如：石英70%+长石15%+黄铁矿10%+其他5%">' + (lastObs ? escapeHtml(lastObs.minerals || "") : "") + '</textarea></div><div><label>结构构造</label><textarea id="obs-texture" placeholder="如：他形晶粒结构，浸染状构造；晶粒结构，块状构造">' + (lastObs ? escapeHtml(lastObs.texture || "") : "") + '</textarea></div><div><label>备注</label><textarea id="obs-remark" placeholder="其他观察记录或补充说明">' + (lastObs ? escapeHtml(lastObs.remark || "") : (hasLegacyOnly ? escapeHtml(legacyObs) : "")) + '</textarea></div><div id="obs-alert" style="margin-top:10px;"></div>' + historyHtml + '<div class="modal-footer"><button type="button" class="secondary" id="obs-cancel">取消</button><button type="button" id="obs-save">保存观察记录</button></div>';
       mask.appendChild(modal);
       modalRoot.appendChild(mask);
+
+      function refreshCompareUI() {
+        const historyList = modal.querySelector("#obs-history-list");
+        const items = historyList ? historyList.querySelectorAll(".obs-history-item") : [];
+        items.forEach(item => {
+          const obsId = item.dataset.obsId;
+          item.classList.toggle("compare-mode", compareMode);
+          item.classList.toggle("selected", selectedObsIds.includes(obsId));
+          const header = item.querySelector(".obs-header");
+          let checkHtml = '';
+          if (compareMode) {
+            const selIdx = selectedObsIds.indexOf(obsId);
+            const badge = selIdx >= 0 ? (' <span style="background:#e6b800;color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:4px;">第' + (selIdx + 1) + '版</span>') : '';
+            checkHtml = '<input type="checkbox" class="compare-checkbox" ' + (selIdx >= 0 ? 'checked' : '') + '>' + badge;
+          }
+          const existingCheck = header.querySelector(".compare-checkbox");
+          if (existingCheck) existingCheck.remove();
+          const existingBadge = header.querySelector('span[style*="background:#e6b800"]');
+          if (existingBadge) existingBadge.remove();
+          if (checkHtml) header.insertAdjacentHTML("afterbegin", checkHtml);
+        });
+        const banner = modal.querySelector("#obs-compare-banner");
+        const hint = modal.querySelector("#obs-compare-hint");
+        const toggleBtn = modal.querySelector("#obs-compare-toggle");
+        if (toggleBtn) {
+          toggleBtn.textContent = compareMode ? "✖ 关闭版本对比" : "🔀 开启版本对比";
+          toggleBtn.classList.toggle("danger", compareMode);
+        }
+        if (hint) {
+          hint.style.display = compareMode ? "" : "none";
+          hint.textContent = compareMode ? "请选择两个版本进行对比..." : "";
+        }
+        if (banner) {
+          if (compareMode && selectedObsIds.length > 0) {
+            banner.style.display = "";
+            const clearBtn = selectedObsIds.length > 0 ? '<button type="button" class="secondary" id="obs-compare-clear">清除选择</button>' : '';
+            const doBtn = selectedObsIds.length === 2 ? '<button type="button" id="obs-compare-do">📊 对比选中版本</button>' : '';
+            let text = "";
+            if (selectedObsIds.length === 0) text = "请点击历史记录条目选择两个版本进行对比";
+            else if (selectedObsIds.length === 1) text = "已选择第1版：" + selectedObsIds[0] + "，请再选一个版本";
+            else text = "已选好2个版本，可以开始对比";
+            banner.innerHTML = '<span>' + text + '（共选 ' + selectedObsIds.length + '/2）</span><span style="display:flex;gap:6px;">' + clearBtn + doBtn + '</span>';
+            const clearBtnEl = banner.querySelector("#obs-compare-clear");
+            if (clearBtnEl) clearBtnEl.onclick = () => { selectedObsIds = []; refreshCompareUI(); modal.querySelector("#obs-compare-result-container").innerHTML = ""; };
+            const doBtnEl = banner.querySelector("#obs-compare-do");
+            if (doBtnEl) doBtnEl.onclick = async () => {
+              if (selectedObsIds.length !== 2) return;
+              doBtnEl.disabled = true;
+              doBtnEl.textContent = "对比中...";
+              try {
+                const result = await api('/api/samples/' + sampleId + '/slices/' + sliceId + '/observations/compare', {
+                  method: 'POST',
+                  body: JSON.stringify({ observationIds: selectedObsIds })
+                });
+                const container = modal.querySelector("#obs-compare-result-container");
+                if (container) {
+                  renderObsCompareResult(result.observationA, result.observationB, container, true);
+                  if (container.firstChild) {
+                    container.firstChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }
+                }
+              } catch (err) {
+                alert("对比失败：" + (err.message || "未知错误"));
+              } finally {
+                doBtnEl.disabled = false;
+                doBtnEl.textContent = "📊 对比选中版本";
+              }
+            };
+          } else {
+            banner.style.display = "none";
+          }
+        }
+      }
+
+      function bindHistoryItemEvents() {
+        const historyList = modal.querySelector("#obs-history-list");
+        if (!historyList) return;
+        const items = historyList.querySelectorAll(".obs-history-item");
+        items.forEach(item => {
+          item.onclick = (e) => {
+            if (!compareMode) return;
+            e.stopPropagation();
+            const obsId = item.dataset.obsId;
+            const idx = selectedObsIds.indexOf(obsId);
+            if (idx >= 0) {
+              selectedObsIds.splice(idx, 1);
+            } else {
+              if (selectedObsIds.length >= 2) {
+                selectedObsIds.shift();
+              }
+              selectedObsIds.push(obsId);
+            }
+            refreshCompareUI();
+          };
+        });
+      }
+
+      const toggleBtn = modal.querySelector("#obs-compare-toggle");
+      if (toggleBtn) {
+        toggleBtn.onclick = () => {
+          compareMode = !compareMode;
+          if (!compareMode) {
+            selectedObsIds = [];
+            const container = modal.querySelector("#obs-compare-result-container");
+            if (container) container.innerHTML = "";
+          }
+          refreshCompareUI();
+        };
+      }
+      bindHistoryItemEvents();
+      refreshCompareUI();
+
       const obsAlert = modal.querySelector("#obs-alert");
       modal.querySelector("#obs-cancel").onclick = () => mask.remove();
       mask.onclick = e => { if (e.target === mask) mask.remove(); };
@@ -3555,6 +3784,24 @@ const page = `<!doctype html>
             summaryHtml = '<div class="audit-item-summary">' + beforeHtml + afterHtml + '</div>';
           }
 
+          let obsInlineDiff = "";
+          if (item.action === "observation:create" && item.observationDiff && item.observationDiff.changes && item.observationDiff.changes.length > 0) {
+            const changeLabels = item.observationDiff.changes.map(c => {
+              const shortOld = c.oldValue.length > 20 ? c.oldValue.substring(0, 20) + "…" : c.oldValue;
+              const shortNew = c.newValue.length > 20 ? c.newValue.substring(0, 20) + "…" : c.newValue;
+              return '<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 6px;border-radius:3px;background:#fff8e6;border:1px solid #e6b800;font-size:11px;">' +
+                '<b>' + escapeHtml(c.label) + '</b>: ' +
+                (shortOld ? '<span style="color:var(--danger);text-decoration:line-through;">' + escapeHtml(shortOld) + '</span>' : '<span style="color:var(--muted);">空</span>') +
+                ' → ' +
+                (shortNew ? '<span style="color:var(--accent);font-weight:600;">' + escapeHtml(shortNew) + '</span>' : '<span style="color:var(--muted);">空</span>') +
+              '</span>';
+            }).join("");
+            obsInlineDiff = '<div style="margin-top:8px;padding:8px 10px;background:#fafcf7;border:1px solid var(--line);border-radius:6px;">' +
+              '<div style="font-size:12px;color:var(--stone);font-weight:600;margin-bottom:4px;">📝 观察字段变更（' + item.observationDiff.changes.length + '项，切片 ' + escapeHtml(item.observationDiff.sliceId || item.sliceId || "-") + '）：点击查看详情获取完整对比</div>' +
+              changeLabels +
+            '</div>';
+          }
+
           let actionsHtml = "";
           if (canRollback && hasSnapshot && !isRollback) {
             actionsHtml = '<div class="audit-item-actions">' +
@@ -3580,6 +3827,7 @@ const page = `<!doctype html>
               '<span>来源接口：<b>' + escapeHtml(item.sourceApi || "-") + '</b></span>' +
             '</div>' +
             (note ? '<div class="audit-item-note">' + escapeHtml(note) + '</div>' : "") +
+            obsInlineDiff +
             summaryHtml +
             actionsHtml +
             '</div>';
@@ -3640,6 +3888,54 @@ const page = `<!doctype html>
           '</pre></div>'
         : '<div class="delivery-section"><h3>快照数据</h3><div class="meta">该审计记录没有快照数据</div></div>';
 
+      let obsDiffHtml = "";
+      if (entry.action === "observation:create") {
+        const obsDiff = entry.observationDiff;
+        const sliceId = entry.sliceId;
+        const observationId = entry.observationId;
+        if (obsDiff && obsDiff.changes && obsDiff.changes.length > 0) {
+          const changesHtml = obsDiff.changes.map(c => {
+            const oldVal = c.oldValue || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+            const newVal = c.newValue || '<span style="color:var(--muted);font-style:italic;">（空）</span>';
+            return '<div class="audit-obs-diff-row">' +
+              '<span class="audit-obs-diff-field">' + escapeHtml(c.label) + '</span>' +
+              '<span class="audit-obs-diff-old">' + oldVal + '</span>' +
+              '<span class="audit-obs-diff-arrow">→</span>' +
+              '<span class="audit-obs-diff-new">' + newVal + '</span>' +
+            '</div>';
+          }).join("");
+          const versionInfo = '<div style="font-size:12px;color:var(--stone);margin-bottom:6px;">' +
+            '<b>切片：</b>' + escapeHtml(sliceId || "-") + ' &nbsp;|&nbsp; ' +
+            '<b>对比版本：</b>' + escapeHtml(obsDiff.prevObsId || "-") + ' → ' + escapeHtml(obsDiff.newObsId || observationId || "-") + ' &nbsp;|&nbsp; ' +
+            '<b>变化字段：</b>' + obsDiff.changes.length + ' 个' +
+          '</div>';
+          obsDiffHtml = '<div class="delivery-section"><h3>📊 观察记录版本对比（本次 vs 上一版）</h3><div class="audit-obs-diff">' +
+            versionInfo + changesHtml +
+          '</div></div>';
+        } else if (sliceId && observationId) {
+          let prevObs = null;
+          let currObs = null;
+          if (entry.snapshot && Array.isArray(entry.snapshot.slices)) {
+            const slice = entry.snapshot.slices.find(s => s.id === sliceId);
+            const observations = slice && slice.observations ? slice.observations : [];
+            const obsIdx = observations.findIndex(o => o.id === observationId);
+            if (obsIdx >= 0) {
+              currObs = observations[obsIdx];
+              prevObs = obsIdx > 0 ? observations[obsIdx - 1] : null;
+            }
+          }
+          if (prevObs && currObs) {
+            const tempContainer = document.createElement("div");
+            renderObsCompareResult(prevObs, currObs, tempContainer, true);
+            obsDiffHtml = '<div class="delivery-section"><h3>📊 观察记录版本对比（本次 vs 上一版）</h3>' + tempContainer.innerHTML + '</div>';
+          } else {
+            obsDiffHtml = '<div class="delivery-section"><h3>观察记录变更</h3><div class="meta">本次观察新增了观察记录（' + escapeHtml(observationId) + '），无前置版本对比数据。</div></div>';
+          }
+        } else {
+          obsDiffHtml = '<div class="delivery-section"><h3>观察记录变更</h3><div class="meta">本次操作新增了观察记录。</div></div>';
+        }
+      }
+
       modal.innerHTML = '<h2>审计记录详情 — ' + escapeHtml(entry.id) + '</h2>' +
         '<div class="delivery-section">' +
           '<h3>基本信息</h3>' +
@@ -3656,6 +3952,7 @@ const page = `<!doctype html>
           '<h3>变更说明</h3>' +
           '<div class="audit-item-note">' + escapeHtml(entry.note || "无") + '</div>' +
         '</div>' +
+        obsDiffHtml +
         snapshotHtml +
         '<div class="modal-footer">' +
           '<button type="button" class="secondary" id="audit-detail-close">关闭</button>' +
@@ -4729,17 +5026,54 @@ const server = http.createServer(async (req, res) => {
         };
         if (!Array.isArray(slice.observations)) slice.observations = [];
         const beforeSample = createSampleSnapshot(sample);
+        const prevObs = slice.observations.length > 0 ? slice.observations[slice.observations.length - 1] : null;
         slice.observations.push(record);
+        const obsDiff = prevObs ? compareObservations(prevObs, record) : null;
         const summaryParts = [];
         if (lithology) summaryParts.push(lithology);
         if (minerals) summaryParts.push(minerals);
         if (texture) summaryParts.push(texture);
         slice.observation = summaryParts.join("；") || remark;
         updateSampleStatus(sample, db);
-        recordAudit(db, { sampleId: sample.id, action: "observation:create", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/observations", beforeSample, afterSample: sample });
+        const auditEntry = recordAudit(db, { sampleId: sample.id, action: "observation:create", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/observations", beforeSample, afterSample: sample });
+        if (obsDiff && obsDiff.length > 0) {
+          auditEntry.observationDiff = {
+            sliceId: slice.id,
+            prevObsId: prevObs.id,
+            newObsId: record.id,
+            changes: obsDiff
+          };
+        }
+        auditEntry.sliceId = slice.id;
+        auditEntry.observationId = record.id;
         await saveDb(db);
         return sendJson(res, 201, { sample, record });
       }
+    }
+
+    const obsCompareMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/slices\/([^/]+)\/observations\/compare$/);
+    if (obsCompareMatch && req.method === "POST") {
+      const sample = db.samples.find(item => item.id === obsCompareMatch[1]);
+      if (!sample) return sendJson(res, 404, { error: "sample_not_found" });
+      const slice = sample.slices.find(item => item.id === obsCompareMatch[2]);
+      if (!slice) return sendJson(res, 404, { error: "slice_not_found" });
+      if (!requirePermission(currentRole, PERMISSIONS.OBSERVATION_VIEW, res)) return;
+      const input = await body(req);
+      const obsIds = input.observationIds || [];
+      if (obsIds.length !== 2) {
+        return sendJson(res, 400, { error: "请指定两个观察记录ID进行对比" });
+      }
+      const observations = slice.observations || [];
+      const obsA = observations.find(o => o.id === obsIds[0]);
+      const obsB = observations.find(o => o.id === obsIds[1]);
+      if (!obsA || !obsB) {
+        return sendJson(res, 404, { error: "指定的观察记录不存在" });
+      }
+      return sendJson(res, 200, {
+        observationA: obsA,
+        observationB: obsB,
+        changes: compareObservations(obsA, obsB)
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/api/csv/template") {
