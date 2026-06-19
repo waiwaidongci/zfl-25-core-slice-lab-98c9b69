@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = join(__dirname, "data", "core-slices.json");
+const dbPath = process.env.DB_PATH || join(__dirname, "data", "core-slices.json");
 const port = Number(process.env.PORT || 3025);
 const statuses = ["待切割", "制片中", "待观察", "已交付"];
 const deliveryStatuses = ["未交付", "部分交付", "已交付"];
