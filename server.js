@@ -537,6 +537,7 @@ const ACTION_LABELS = {
   "slice:append": "追加切片",
   "slice:batch": "批量追加切片",
   "step:advance": "推进步骤",
+  "step:batch-advance": "批量推进步骤",
   "observation:create": "填写观察结果",
   "delivery:confirm": "确认交付",
   "csv:import": "CSV导入",
@@ -565,13 +566,14 @@ function describeDiff(beforeSample, afterSample, action) {
   }
   const beforeSliceMap = {};
   beforeSample.slices.forEach(s => { beforeSliceMap[s.id] = s; });
+  const changedSlices = [];
   afterSample.slices.forEach(s => {
     const before = beforeSliceMap[s.id];
     if (!before) {
       parts.push(`新增切片 ${s.id}（${s.method}）`);
     } else {
       if (before.status !== s.status) {
-        parts.push(`切片 ${s.id}：${before.status} → ${s.status}`);
+        changedSlices.push(`${s.id}：${before.status} → ${s.status}`);
       }
       const beforeObsCount = (before.observations || []).length;
       const afterObsCount = (s.observations || []).length;
@@ -585,6 +587,15 @@ function describeDiff(beforeSample, afterSample, action) {
       }
     }
   });
+  if (changedSlices.length > 0) {
+    if (action === "step:batch-advance") {
+      parts.push(`批量推进 ${changedSlices.length} 个切片：${changedSlices.join("、")}`);
+    } else if (changedSlices.length === 1) {
+      parts.push(`切片 ${changedSlices[0]}`);
+    } else {
+      changedSlices.forEach(cs => parts.push(`切片 ${cs}`));
+    }
+  }
   return parts.join("；");
 }
 
@@ -932,6 +943,26 @@ const page = `<!doctype html>
     .workbench-empty { text-align:center; color:var(--muted); font-size:12px; padding:20px 8px; border:1px dashed var(--line); border-radius:6px; }
     .workbench-error { background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:8px; padding:16px; text-align:center; color:var(--danger); grid-column:1/-1; }
     .step-indicator { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:var(--accent); color:#fff; font-size:11px; font-weight:700; }
+    .workbench-toolbar { display:flex; gap:12px; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 16px; margin-bottom:12px; flex-wrap:wrap; }
+    .workbench-toolbar-left { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .workbench-toolbar-right { display:flex; gap:12px; align-items:center; }
+    .batch-select-label { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:var(--stone); }
+    .batch-select-label input { margin:0; }
+    .batch-selected-count { background:var(--accent); color:#fff; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+    .batch-advance-btn { background:var(--accent); color:#fff; }
+    .workbench-card.selected { background:#fffbe6; border-color:#e6b800; box-shadow:0 2px 8px rgba(230,184,0,0.2); }
+    .workbench-card-checkbox { position:absolute; top:8px; right:8px; width:18px; height:18px; cursor:pointer; z-index:10; }
+    .workbench-card { position:relative; }
+    .workbench-card.has-checkbox { padding-right:36px; }
+    .batch-error-list { max-height:200px; overflow-y:auto; background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:6px; padding:10px; margin-top:10px; }
+    .batch-error-item { font-size:12px; padding:4px 0; border-bottom:1px dashed var(--warn-border); }
+    .batch-error-item:last-child { border-bottom:0; }
+    .batch-error-item .slice-id { font-weight:700; color:var(--danger); }
+    .batch-success-info { background:#edf5e8; border:1px solid #c6dcb8; border-radius:6px; padding:10px; margin-top:10px; font-size:13px; color:var(--accent); }
+    .batch-modal-step-info { display:flex; gap:10px; align-items:center; background:#f5f8f0; border:1px solid #c6dcb8; border-radius:6px; padding:10px; margin-bottom:12px; }
+    .batch-modal-step-info .step-arrow { font-size:18px; color:var(--accent); font-weight:700; }
+    .batch-modal-step-info .step-badge { background:var(--accent); color:#fff; padding:4px 10px; border-radius:4px; font-weight:600; font-size:13px; }
+    .batch-modal-step-info .step-badge.next { background:#e6b800; }
     @media (max-width:1200px){ .workbench{grid-template-columns:repeat(3,1fr);} }
     @media (max-width:800px){ .workbench{grid-template-columns:1fr 1fr;} }
     @media (max-width:500px){ .workbench{grid-template-columns:1fr;} }
@@ -1593,6 +1624,8 @@ const page = `<!doctype html>
     const auditFilterFields = ["sample", "action", "operator"];
     const filterFields = ["project", "borehole", "corebox", "owner", "status", "delivery"];
     const deliveryFilterFields = ["project", "unit", "person"];
+    let selectedSlices = new Set();
+    let batchModeEnabled = false;
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -1922,7 +1955,46 @@ const page = `<!doctype html>
           return;
         }
 
-        workbenchEl.innerHTML = steps.map((step, index) => {
+        const canStepAdvance = roleHasPerm(PERMISSIONS.STEP_ADVANCE);
+        const producerSteps = ["取样", "切割", "研磨", "染色"];
+        const selectableSlices = allSlices.filter(item => {
+          const slice = item.slice || {};
+          const sliceStatus = slice.status || "";
+          const sliceDelivered = deliveredSliceIds.has(slice.id);
+          return canStepAdvance && producerSteps.includes(sliceStatus) && !sliceDelivered;
+        });
+
+        let toolbarHtml = "";
+        if (canStepAdvance && selectableSlices.length > 0) {
+          const producerStepGroups = {};
+          producerSteps.forEach(s => { producerStepGroups[s] = []; });
+          selectableSlices.forEach(item => {
+            const status = item.slice.status || producerSteps[0];
+            if (producerStepGroups[status]) producerStepGroups[status].push(item);
+          });
+
+          const currentStepCounts = producerSteps.map(s => {
+            const count = producerStepGroups[s] ? producerStepGroups[s].length : 0;
+            return count > 0 ? '<span class="pill">' + s + '：' + count + ' 可推进</span>' : "";
+          }).filter(Boolean).join(" ");
+
+          toolbarHtml = '<div class="workbench-toolbar">' +
+            '<div class="workbench-toolbar-left">' +
+              '<label class="batch-select-label">' +
+                '<input type="checkbox" id="batch-select-all" ' + (selectedSlices.size === selectableSlices.length && selectableSlices.length > 0 ? 'checked' : '') + '> ' +
+                '批量选择' +
+              '</label>' +
+              (selectedSlices.size > 0 ? '<span class="batch-selected-count">已选择 ' + selectedSlices.size + ' 个</span>' : '') +
+              '<span class="meta" style="font-size:12px;">可推进步骤：' + currentStepCounts + '</span>' +
+            '</div>' +
+            '<div class="workbench-toolbar-right">' +
+              (selectedSlices.size > 0 ? '<button type="button" class="batch-advance-btn" id="batch-advance-btn">批量推进到下一步</button>' : '') +
+              (selectedSlices.size > 0 ? '<button type="button" class="secondary" id="batch-clear-btn">清除选择</button>' : '') +
+            '</div>' +
+          '</div>';
+        }
+
+        workbenchEl.innerHTML = toolbarHtml + steps.map((step, index) => {
           const stepSlices = groups[step] || [];
           const cardsHtml = stepSlices.length ? stepSlices.map(item => {
             const sample = item.sample || {};
@@ -1945,7 +2017,18 @@ const page = `<!doctype html>
             const wbNextHint = getNextStepHint(slice.status, sliceObs.length > 0 || sliceLegacyObs.length > 0, sample.delivery || "", sliceDelivered);
             const wbNextHintHtml = wbNextHint.text ? '<div class="' + wbNextHint.cls + '">' + wbNextHint.text + '</div>' : '';
 
-            return '<div class="workbench-card" data-workbench-card="' + sampleId + '|' + sliceId + '">' +
+            const isSelectable = canStepAdvance && producerSteps.includes(slice.status) && !sliceDelivered;
+            const isSelected = selectedSlices.has(sliceId);
+            const cardClass = isSelectable ? 'workbench-card has-checkbox' : 'workbench-card';
+            const selectedClass = isSelected ? ' selected' : '';
+
+            let checkboxHtml = "";
+            if (isSelectable) {
+              checkboxHtml = '<input type="checkbox" class="workbench-card-checkbox" data-slice-checkbox="' + sliceId + '" ' + (isSelected ? 'checked' : '') + '>';
+            }
+
+            return '<div class="' + cardClass + selectedClass + '" data-workbench-card="' + sampleId + '|' + sliceId + '">' +
+              checkboxHtml +
               '<div class="workbench-card-id">' + sliceId + '</div>' +
               '<div class="workbench-card-meta">' + method + '</div>' +
               '<div class="workbench-card-meta">' + borehole + ' · ' + coreBox + ' · ' + depth + '</div>' +
@@ -1978,11 +2061,207 @@ const page = `<!doctype html>
         }).join("");
 
         bindWorkbenchEvents();
+        bindBatchSelectionEvents();
         applyRoleToUI();
       } catch (err) {
         workbenchError = err.message;
         workbenchEl.innerHTML = '<div class="workbench-error">工作台加载失败：' + err.message + '<br><button type="button" class="secondary" style="margin-top:10px;" onclick="location.reload()">重新加载</button></div>';
       }
+    }
+
+    function bindBatchSelectionEvents() {
+      const selectAllCheckbox = document.querySelector("#batch-select-all");
+      if (selectAllCheckbox) {
+        selectAllCheckbox.onchange = () => {
+          const filters = getFilters();
+          const filtered = applyFilters(samples, filters);
+          const allSlices = getAllSlicesWithSample(filtered);
+          const deliveredSliceIds = new Set();
+          deliveries.forEach(d => d.slices.forEach(s => deliveredSliceIds.add(s.id)));
+          const producerSteps = ["取样", "切割", "研磨", "染色"];
+          const selectableSlices = allSlices.filter(item => {
+            const slice = item.slice || {};
+            return producerSteps.includes(slice.status) && !deliveredSliceIds.has(slice.id);
+          });
+
+          if (selectAllCheckbox.checked) {
+            selectableSlices.forEach(item => selectedSlices.add(item.slice.id));
+          } else {
+            selectedSlices.clear();
+          }
+          renderWorkbench();
+        };
+      }
+
+      const clearBtn = document.querySelector("#batch-clear-btn");
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          selectedSlices.clear();
+          renderWorkbench();
+        };
+      }
+
+      const advanceBtn = document.querySelector("#batch-advance-btn");
+      if (advanceBtn) {
+        advanceBtn.onclick = () => {
+          openBatchAdvanceModal();
+        };
+      }
+
+      document.querySelectorAll(".workbench-card-checkbox").forEach(checkbox => {
+        checkbox.onclick = (e) => {
+          e.stopPropagation();
+        };
+        checkbox.onchange = (e) => {
+          e.stopPropagation();
+          const sliceId = checkbox.dataset.sliceCheckbox;
+          if (checkbox.checked) {
+            selectedSlices.add(sliceId);
+          } else {
+            selectedSlices.delete(sliceId);
+          }
+          renderWorkbench();
+        };
+      });
+    }
+
+    function openBatchAdvanceModal() {
+      if (selectedSlices.size === 0) return;
+
+      const filters = getFilters();
+      const filtered = applyFilters(samples, filters);
+      const allSlices = getAllSlicesWithSample(filtered);
+      const sliceMap = new Map();
+      allSlices.forEach(item => {
+        if (item.slice && item.slice.id) {
+          sliceMap.set(item.slice.id, item);
+        }
+      });
+
+      const selectedItems = [];
+      selectedSlices.forEach(id => {
+        const item = sliceMap.get(id);
+        if (item) selectedItems.push(item);
+      });
+
+      if (selectedItems.length === 0) {
+        alert("未找到选中的切片数据");
+        return;
+      }
+
+      const stepsFound = [...new Set(selectedItems.map(i => i.slice.status))];
+      if (stepsFound.length > 1) {
+        alert("请选择同一工序步骤的切片进行批量推进。\\n当前选中步骤：" + stepsFound.join("、"));
+        return;
+      }
+
+      const fromStep = stepsFound[0];
+      const producerSteps = ["取样", "切割", "研磨", "染色"];
+      const currentIdx = producerSteps.indexOf(fromStep);
+      const toStep = currentIdx >= 0 && currentIdx < producerSteps.length - 1 ? producerSteps[currentIdx + 1] : null;
+
+      if (!toStep) {
+        alert("当前步骤已是制片最后一步，无法继续推进");
+        return;
+      }
+
+      const mask = document.createElement("div");
+      mask.className = "modal-mask";
+      const modal = document.createElement("div");
+      modal.className = "modal";
+      modal.innerHTML = '<h2>批量推进步骤</h2>' +
+        '<div class="batch-modal-step-info">' +
+          '<span class="step-badge">' + fromStep + '</span>' +
+          '<span class="step-arrow">→</span>' +
+          '<span class="step-badge next">' + toStep + '</span>' +
+        '</div>' +
+        '<div class="meta" style="margin-bottom:12px;">将批量推进 <b>' + selectedItems.length + '</b> 个切片：' + selectedItems.slice(0, 10).map(i => i.slice.id).join("、") + (selectedItems.length > 10 ? '...' : '') + '</div>' +
+        '<div>' +
+          '<label>统一备注（可选，将应用到所有选中的切片）</label>' +
+          '<textarea id="batch-note" placeholder="例如：完成' + fromStep + '，准备进入' + toStep + '"></textarea>' +
+        '</div>' +
+        '<div id="batch-result" style="margin-top:10px;"></div>' +
+        '<div class="modal-footer">' +
+          '<button type="button" class="secondary" id="batch-cancel">取消</button>' +
+          '<button type="button" id="batch-confirm">确认批量推进</button>' +
+        '</div>';
+      mask.appendChild(modal);
+      modalRoot.appendChild(mask);
+
+      modal.querySelector("#batch-cancel").onclick = () => mask.remove();
+      mask.onclick = e => { if (e.target === mask) mask.remove(); };
+
+      modal.querySelector("#batch-confirm").onclick = async () => {
+        const note = modal.querySelector("#batch-note").value.trim();
+        const confirmBtn = modal.querySelector("#batch-confirm");
+        const resultEl = modal.querySelector("#batch-result");
+
+        try {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "处理中...";
+          resultEl.innerHTML = "";
+
+          const result = await api('/api/slices/batch-advance', {
+            method: 'POST',
+            body: JSON.stringify({
+              sliceIds: Array.from(selectedSlices),
+              note: note
+            })
+          });
+
+          if (result && result.success) {
+            const successMsg = '成功推进 ' + result.advancedCount + ' 个切片' +
+              (result.failedCount > 0 ? '，失败 ' + result.failedCount + ' 个' : '') +
+              '，从「' + result.fromStep + '」推进到「' + result.targetStep + '」';
+
+            let errorHtml = "";
+            if (result.sliceErrors && result.sliceErrors.length > 0) {
+              errorHtml = '<div class="batch-error-list">' +
+                '<div style="font-weight:600;color:var(--danger);margin-bottom:6px;">失败切片详情：</div>' +
+                result.sliceErrors.map(e => {
+                  return '<div class="batch-error-item"><span class="slice-id">' + e.sliceId + '</span>：' + escapeHtml(e.error) + '</div>';
+                }).join("") +
+              '</div>';
+            }
+
+            resultEl.innerHTML = '<div class="batch-success-info">✓ ' + successMsg + '</div>' + errorHtml;
+
+            confirmBtn.textContent = "操作完成";
+            confirmBtn.style.display = "none";
+            modal.querySelector("#batch-cancel").textContent = "关闭";
+
+            selectedSlices.clear();
+            await Promise.all([
+              load(),
+              loadAndRenderStats()
+            ]);
+          }
+        } catch (err) {
+          let errorMsg = err.message || "操作失败";
+          let errorHtml = "";
+          try {
+            const parsed = JSON.parse(errorMsg);
+            if (parsed.sliceErrors && parsed.sliceErrors.length > 0) {
+              errorHtml = '<div class="batch-error-list">' +
+                '<div style="font-weight:600;color:var(--danger);margin-bottom:6px;">错误详情：</div>' +
+                parsed.sliceErrors.map(e => {
+                  return '<div class="batch-error-item"><span class="slice-id">' + e.sliceId + '</span>：' + escapeHtml(e.error) + '</div>';
+                }).join("") +
+              '</div>';
+              errorMsg = parsed.error || "部分切片无法推进";
+            } else if (parsed.error) {
+              errorMsg = parsed.error;
+            }
+          } catch (_) {}
+
+          resultEl.innerHTML = '<div class="alert">' + escapeHtml(errorMsg) + '</div>' + errorHtml;
+        } finally {
+          confirmBtn.disabled = false;
+          if (confirmBtn.style.display !== "none") {
+            confirmBtn.textContent = "确认批量推进";
+          }
+        }
+      };
     }
 
     function bindWorkbenchEvents() {
@@ -3021,6 +3300,7 @@ const page = `<!doctype html>
           "slice:append": "追加切片",
           "slice:batch": "批量追加切片",
           "step:advance": "推进步骤",
+          "step:batch-advance": "批量推进步骤",
           "observation:create": "填写观察结果",
           "delivery:confirm": "确认交付",
           "csv:import": "CSV导入",
@@ -3780,6 +4060,185 @@ const server = http.createServer(async (req, res) => {
       recordAudit(db, { sampleId: sample.id, action: "step:advance", operator: currentRole, sourceApi: "POST /api/samples/:id/slices/:sliceId/logs", beforeSample, afterSample: sample });
       await saveDb(db);
       return sendJson(res, 200, sample);
+    }
+
+    function canAdvanceSlice(slice, targetStep, role, deliveredSliceIds) {
+      const errors = [];
+      if (!slice) {
+        errors.push("切片不存在");
+        return { valid: false, errors };
+      }
+      if (deliveredSliceIds && deliveredSliceIds.has(slice.id)) {
+        errors.push("该切片已交付，无法推进");
+        return { valid: false, errors };
+      }
+      const currentStep = slice.status;
+      const producerSteps = ["取样", "切割", "研磨", "染色"];
+      const isProducerRole = roleHasPermission(role, PERMISSIONS.STEP_ADVANCE);
+      if (!isProducerRole) {
+        errors.push("当前角色无推进制片步骤权限");
+        return { valid: false, errors };
+      }
+      if (!producerSteps.includes(currentStep)) {
+        errors.push(`当前步骤「${currentStep}」不属于制片工序，无法推进`);
+        return { valid: false, errors };
+      }
+      const currentIdx = producerSteps.indexOf(currentStep);
+      const targetIdx = producerSteps.indexOf(targetStep);
+      if (targetIdx !== currentIdx + 1) {
+        const expectedNext = producerSteps[currentIdx + 1];
+        if (expectedNext) {
+          errors.push(`只能从「${currentStep}」推进到「${expectedNext}」，不能直接跳转到「${targetStep}」`);
+        } else {
+          errors.push(`当前步骤「${currentStep}」已是制片最后一步，制片人员无法继续推进`);
+        }
+        return { valid: false, errors };
+      }
+      return { valid: true, errors };
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/slices/batch-advance") {
+      if (!requirePermission(currentRole, PERMISSIONS.STEP_ADVANCE, res)) return;
+      const input = await body(req);
+      const sliceIds = Array.isArray(input.sliceIds) ? input.sliceIds : [];
+      const note = (input.note || "").trim();
+
+      if (sliceIds.length === 0) {
+        return sendJson(res, 400, { error: "请至少选择一个切片" });
+      }
+
+      const allDeliveredSliceIds = new Set();
+      db.deliveries.forEach(d => d.slices.forEach(s => allDeliveredSliceIds.add(s.id)));
+
+      const sliceMap = new Map();
+      db.samples.forEach(sample => {
+        sample.slices.forEach(slice => {
+          sliceMap.set(slice.id, { sample, slice });
+        });
+      });
+
+      const validationResults = [];
+      const validItems = [];
+      const errors = [];
+
+      sliceIds.forEach(sliceId => {
+        const item = sliceMap.get(sliceId);
+        if (!item) {
+          errors.push({
+            sliceId,
+            error: `切片「${sliceId}」不存在`
+          });
+          return;
+        }
+        const { sample, slice } = item;
+        const currentStep = slice.status;
+        const producerSteps = ["取样", "切割", "研磨", "染色"];
+        const currentIdx = producerSteps.indexOf(currentStep);
+        const nextStep = currentIdx >= 0 && currentIdx < producerSteps.length - 1 ? producerSteps[currentIdx + 1] : null;
+
+        if (!nextStep) {
+          errors.push({
+            sliceId,
+            sampleId: sample.id,
+            currentStep,
+            error: `当前步骤「${currentStep}」已是制片最后一步，无法继续推进`
+          });
+          return;
+        }
+
+        const check = canAdvanceSlice(slice, nextStep, currentRole, allDeliveredSliceIds);
+        if (!check.valid) {
+          errors.push({
+            sliceId,
+            sampleId: sample.id,
+            currentStep,
+            nextStep,
+            error: check.errors.join("；")
+          });
+          return;
+        }
+
+        validationResults.push({
+          sliceId,
+          sampleId: sample.id,
+          currentStep,
+          nextStep,
+          valid: true
+        });
+        validItems.push({ sample, slice, nextStep });
+      });
+
+      const steps = [...new Set(validItems.map(v => v.slice.status))];
+      if (validItems.length > 0 && steps.length > 1) {
+        return sendJson(res, 400, {
+          error: "所选切片处于不同工序步骤，请选择同一工序步骤的切片进行批量推进",
+          sliceErrors: errors,
+          stepsFound: steps
+        });
+      }
+
+      if (validItems.length === 0) {
+        return sendJson(res, 400, {
+          error: "没有可推进的切片",
+          sliceErrors: errors
+        });
+      }
+
+      const targetStep = validItems[0].nextStep;
+      const commonNote = note || `${targetStep}步骤完成`;
+      const batchId = `BATCH-${Date.now()}`;
+
+      const affectedSamples = new Map();
+      const beforeSnapshots = new Map();
+      const advancedSliceIds = [];
+
+      validItems.forEach(({ sample, slice, nextStep }) => {
+        if (!beforeSnapshots.has(sample.id)) {
+          beforeSnapshots.set(sample.id, createSampleSnapshot(sample));
+        }
+        slice.status = nextStep;
+        slice.logs.push({
+          at: new Date().toISOString(),
+          step: nextStep,
+          note: commonNote
+        });
+        updateSampleStatus(sample, db);
+        affectedSamples.set(sample.id, sample);
+        advancedSliceIds.push(slice.id);
+      });
+
+      affectedSamples.forEach((sample, sampleId) => {
+        const beforeSample = beforeSnapshots.get(sampleId);
+        recordAudit(db, {
+          sampleId,
+          action: "step:batch-advance",
+          operator: currentRole,
+          sourceApi: "POST /api/slices/batch-advance",
+          beforeSample,
+          afterSample: sample,
+          note: `批量推进 ${advancedSliceIds.filter(id => {
+            const item = sliceMap.get(id);
+            return item && item.sample.id === sampleId;
+          }).length} 个切片：${advancedSliceIds.filter(id => {
+            const item = sliceMap.get(id);
+            return item && item.sample.id === sampleId;
+          }).join("、")}，从「${steps[0]}」推进到「${targetStep}」，批量操作ID：${batchId}`
+        });
+      });
+
+      await saveDb(db);
+
+      return sendJson(res, 200, {
+        success: true,
+        batchId,
+        advancedCount: advancedSliceIds.length,
+        failedCount: errors.length,
+        advancedSliceIds,
+        targetStep,
+        fromStep: steps[0],
+        sliceErrors: errors,
+        note: commonNote
+      });
     }
     const deliveryPreviewMatch = url.pathname.match(/^\/api\/samples\/([^/]+)\/delivery-preview$/);
     if (deliveryPreviewMatch && req.method === "GET") {
