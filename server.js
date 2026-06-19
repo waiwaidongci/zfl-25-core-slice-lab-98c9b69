@@ -2018,6 +2018,95 @@ const page = `<!doctype html>
     const ABNORMAL_FIXED_DAYS = 3;
     const ABNORMAL_FIXED_HOURS = ABNORMAL_FIXED_DAYS * 24;
 
+    function safeParseLogTime(isoStr) {
+      if (!isoStr) return null;
+      const t = new Date(isoStr).getTime();
+      return isNaN(t) ? null : t;
+    }
+
+    function getParsedSliceLogs(slice) {
+      const logs = Array.isArray(slice.logs) ? slice.logs : [];
+      return logs.map(log => {
+        const t = safeParseLogTime(log.at);
+        return t === null ? null : { ...log, _time: t };
+      }).filter(log => log !== null && log.step).sort((a, b) => a._time - b._time);
+    }
+
+    function sliceHasObservationForTiming(slice) {
+      const observations = Array.isArray(slice.observations) ? slice.observations : [];
+      if (observations.length > 0) return true;
+      const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
+      return legacyObs.length > 0;
+    }
+
+    function getSliceObservationTimeForTiming(slice) {
+      const observations = Array.isArray(slice.observations) ? slice.observations : [];
+      for (let i = observations.length - 1; i >= 0; i--) {
+        const t = safeParseLogTime(observations[i].at);
+        if (t !== null) return { time: t, iso: observations[i].at };
+      }
+      return null;
+    }
+
+    function getDeliveredSliceIdsForSample(sampleId) {
+      const delivered = new Set();
+      deliveries.forEach(d => {
+        if (d.sampleId === sampleId) {
+          (d.slices || []).forEach(s => delivered.add(s.id));
+        }
+      });
+      return delivered;
+    }
+
+    function isSliceDoneForTiming(slice, sample, parsedLogs, deliveredSliceIds) {
+      if (deliveredSliceIds && deliveredSliceIds.has(slice.id)) return true;
+      if (sample && sample.delivery === "已交付") return true;
+      const hasObs = sliceHasObservationForTiming(slice);
+      const status = slice.status || "";
+      if (hasObs && status === "观察") return true;
+      if (parsedLogs && parsedLogs.length > 0) {
+        const lastStep = parsedLogs[parsedLogs.length - 1].step;
+        if (hasObs && lastStep === "观察") return true;
+      }
+      return false;
+    }
+
+    function getSliceStepDetailsForTiming(slice, sample, deliveredSliceIds, now) {
+      const parsedLogs = getParsedSliceLogs(slice);
+      if (!parsedLogs.length) return [];
+      const done = isSliceDoneForTiming(slice, sample, parsedLogs, deliveredSliceIds);
+      const obsTime = getSliceObservationTimeForTiming(slice);
+      const details = [];
+      for (let i = 0; i < parsedLogs.length; i++) {
+        const currentStep = parsedLogs[i].step;
+        const currentTime = parsedLogs[i]._time;
+        let nextTime;
+        if (i < parsedLogs.length - 1) {
+          nextTime = parsedLogs[i + 1]._time;
+        } else if (done) {
+          if (obsTime && obsTime.time > currentTime) {
+            nextTime = obsTime.time;
+          } else {
+            continue;
+          }
+        } else {
+          nextTime = now;
+        }
+        details.push({
+          step: currentStep,
+          dwellHours: (nextTime - currentTime) / (1000 * 60 * 60)
+        });
+      }
+      if (done && details.length === 0 && obsTime) {
+        const firstLog = parsedLogs[0];
+        details.push({
+          step: firstLog.step,
+          dwellHours: (obsTime.time - firstLog._time) / (1000 * 60 * 60)
+        });
+      }
+      return details;
+    }
+
     function computeStepAverages(sampleList) {
       const stepSums = {};
       const stepCounts = {};
@@ -2025,27 +2114,17 @@ const page = `<!doctype html>
       const now = Date.now();
       sampleList.forEach(sample => {
         if (!sample.slices) return;
+        const deliveredSliceIds = getDeliveredSliceIdsForSample(sample.id);
         sample.slices.forEach(slice => {
-          const logs = slice.logs || [];
-          const parsedLogs = logs.map(log => {
-            const t = new Date(log.at).getTime();
-            return isNaN(t) ? null : { ...log, _time: t };
-          }).filter(l => l !== null && l.step).sort((a, b) => a._time - b._time);
-          for (let i = 0; i < parsedLogs.length; i++) {
-            const currentStep = parsedLogs[i].step;
-            const currentTime = parsedLogs[i]._time;
-            let nextTime;
-            if (i < parsedLogs.length - 1) {
-              nextTime = parsedLogs[i + 1]._time;
-            } else {
-              nextTime = now;
-            }
-            const dwellHours = (nextTime - currentTime) / (1000 * 60 * 60);
+          const stepDetails = getSliceStepDetailsForTiming(slice, sample, deliveredSliceIds, now);
+          stepDetails.forEach(detail => {
+            const currentStep = detail.step;
+            const dwellHours = detail.dwellHours;
             if (stepSums[currentStep] !== undefined) {
               stepSums[currentStep] += dwellHours;
               stepCounts[currentStep]++;
             }
-          }
+          });
         });
       });
       const avgs = {};
@@ -2055,24 +2134,12 @@ const page = `<!doctype html>
       return avgs;
     }
 
-    function getSliceAbnormalInfo(slice, stepAvgs) {
-      const logs = slice.logs || [];
-      const parsedLogs = logs.map(log => {
-        const t = new Date(log.at).getTime();
-        return isNaN(t) ? null : { ...log, _time: t };
-      }).filter(l => l !== null && l.step).sort((a, b) => a._time - b._time);
-      const now = Date.now();
+    function getSliceAbnormalInfo(slice, sample, deliveredSliceIds, stepAvgs) {
+      const stepDetails = getSliceStepDetailsForTiming(slice, sample, deliveredSliceIds, Date.now());
       const abnormalSteps = [];
-      for (let i = 0; i < parsedLogs.length; i++) {
-        const currentStep = parsedLogs[i].step;
-        const currentTime = parsedLogs[i]._time;
-        let nextTime;
-        if (i < parsedLogs.length - 1) {
-          nextTime = parsedLogs[i + 1]._time;
-        } else {
-          nextTime = now;
-        }
-        const dwellHours = (nextTime - currentTime) / (1000 * 60 * 60);
+      stepDetails.forEach(detail => {
+        const currentStep = detail.step;
+        const dwellHours = detail.dwellHours;
         const stepAvg = stepAvgs[currentStep] || 0;
         const exceedsAvg = stepAvg > 0 && dwellHours > stepAvg * ABNORMAL_MULTIPLIER;
         const exceedsFixed = dwellHours > ABNORMAL_FIXED_HOURS;
@@ -2085,7 +2152,7 @@ const page = `<!doctype html>
             stepAvg
           });
         }
-      }
+      });
       return {
         hasAbnormal: abnormalSteps.length > 0,
         abnormalStepCount: abnormalSteps.length,
@@ -2096,9 +2163,10 @@ const page = `<!doctype html>
     function getSampleAbnormalInfo(sample, stepAvgs) {
       let totalAbnormal = 0;
       const abnormalSliceIds = [];
+      const deliveredSliceIds = getDeliveredSliceIdsForSample(sample.id);
       if (sample.slices) {
         sample.slices.forEach(slice => {
-          const info = getSliceAbnormalInfo(slice, stepAvgs);
+          const info = getSliceAbnormalInfo(slice, sample, deliveredSliceIds, stepAvgs);
           if (info.hasAbnormal) {
             totalAbnormal += info.abnormalStepCount;
             abnormalSliceIds.push(slice.id);
@@ -3003,7 +3071,7 @@ const page = `<!doctype html>
         
         const deliveryHistoryHtml = deliveryHistory.length ? '<div class="meta" style="margin-top:6px;"><b style="color:var(--accent);">历史交付（'+deliveryHistory.length+'）：</b>' + deliveryHistory.map(d => d.id + '（' + (d.deliveryType === 'partial' ? '部分' : '全部') + '，' + d.slices.length + '片，' + formatObsDate(d.deliveredAt) + '）').join('、') + '</div>' : '';
         return '<article class="card' + (sampleAbnormal.hasAbnormal ? ' card-abnormal' : '') + '"><h3>'+sample.project+'</h3><div class="sample-id">'+sample.id+'</div><div><span class="pill">'+sample.status+'</span> <span class="pill">'+deliveryBadge+'</span></div><div class="meta">'+sample.borehole+' · '+sample.coreBox+' · '+sample.depth+' · '+sample.owner+'</div>' + sampleAbnormalHtml + summaryHtml + deliveryHistoryHtml + '<button type="button" class="secondary" data-batch-append="'+sample.id+'">批量追加切片</button>'+sample.slices.map(slice => {
-          const sliceAbnormal = getSliceAbnormalInfo(slice, stepAvgs);
+          const sliceAbnormal = getSliceAbnormalInfo(slice, sample, deliveredSliceIds, stepAvgs);
           const observations = slice.observations || [];
           const lastObs = observations.length ? observations[observations.length - 1] : null;
           const legacyObs = typeof slice.observation === "string" ? slice.observation.trim() : "";
