@@ -1,41 +1,185 @@
 {
-  "samples": [
+  "methods": [
     {
-      "id": "CORE-1781780732614",
-      "project": "测试项目",
-      "borehole": "ZK-001",
-      "coreBox": "BX-01",
-      "depth": "100-102m",
-      "owner": "测试人",
-      "status": "制片中",
-      "delivery": "未交付",
+      "id": "M-001",
+      "name": "普通薄片",
+      "description": "标准岩矿薄片制片，厚度0.03mm",
+      "enabled": true,
+      "isDefault": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "sortOrder": 1
+    },
+    {
+      "id": "M-002",
+      "name": "茜素红染色",
+      "description": "碳酸盐矿物染色，区分方解石/白云石",
+      "enabled": true,
+      "isDefault": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "sortOrder": 2
+    },
+    {
+      "id": "M-003",
+      "name": "光片",
+      "description": "不透明矿物光片制片，用于反光显微镜观察",
+      "enabled": true,
+      "isDefault": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "sortOrder": 3
+    },
+    {
+      "id": "M-004",
+      "name": "油浸薄片",
+      "description": "油浸法制备薄片，用于精确测定矿物折射率",
+      "enabled": true,
+      "isDefault": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "sortOrder": 4
+    },
+    {
+      "id": "M-005",
+      "name": "电子探针片",
+      "description": "电子探针显微分析用样品片",
+      "enabled": false,
+      "isDefault": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "sortOrder": 5
+    }
+  ],
+  "auditLog": [],
+  "deliveries": [
+    {
+      "id": "DLV-001",
+      "sampleId": "CORE-004",
+      "deliveredAt": "2026-06-06T10:30:00.000Z",
+      "deliveredBy": "李雪",
+      "receivingUnit": "地质分析中心",
+      "remark": "西山金矿首批薄片交付，共1个切片",
       "slices": [
         {
-          "id": "SL-020-A",
-          "method": "普通薄片",
-          "observation": "",
-          "observations": [],
-          "status": "研磨",
-          "logs": [
-            {
-              "at": "2026-06-18T11:05:32.614Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            },
-            {
-              "at": "2026-06-19T02:29:05.460Z",
-              "step": "切割",
-              "note": "测试批量推进取样→切割"
-            },
-            {
-              "at": "2026-06-19T02:33:08.488Z",
-              "step": "研磨",
-              "note": "综合测试：批量推进切割→研磨"
-            }
-          ]
+          "id": "SL-004-A",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-004"
         }
-      ]
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-004",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-05",
+        "coreBox": "BX-12",
+        "depth": "245.2-245.6m",
+        "owner": "陈明"
+      },
+      "deliveryType": "full"
     },
+    {
+      "id": "DLV-002",
+      "sampleId": "CORE-009",
+      "deliveredAt": "2026-05-25T14:00:00.000Z",
+      "deliveredBy": "王涛",
+      "receivingUnit": "岩矿鉴定实验室",
+      "remark": "铅锌矿光片交付，含黄铜矿固溶体分离特征",
+      "slices": [
+        {
+          "id": "SL-009-A",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-009"
+        }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-009",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-16",
+        "depth": "195.2-195.6m",
+        "owner": "王涛"
+      },
+      "deliveryType": "full"
+    },
+    {
+      "id": "DLV-003",
+      "sampleId": "CORE-011",
+      "deliveredAt": "2026-06-15T09:30:00.000Z",
+      "deliveredBy": "陆川",
+      "receivingUnit": "矿产资源研究所",
+      "remark": "南山铁矿首批光片交付，普通薄片待制片完成后再交付",
+      "deliveryType": "partial",
+      "slices": [
+        {
+          "id": "SL-011-A",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-011"
+        }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-011",
+        "project": "南山铁矿",
+        "borehole": "ZK-32",
+        "coreBox": "BX-09",
+        "depth": "78.3-78.7m",
+        "owner": "陆川"
+      }
+    },
+    {
+      "id": "DLV-004",
+      "sampleId": "CORE-012",
+      "deliveredAt": "2026-06-10T11:00:00.000Z",
+      "deliveredBy": "陈明",
+      "receivingUnit": "岩矿测试中心",
+      "remark": "西山金矿第二批首批普通薄片交付，光片和茜素红染色片待后续交付",
+      "deliveryType": "partial",
+      "slices": [
+        {
+          "id": "SL-012-A",
+          "method": "普通薄片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-012A"
+        }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-012",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-07",
+        "coreBox": "BX-05",
+        "depth": "356.8-357.2m",
+        "owner": "陈明"
+      }
+    },
+    {
+      "id": "DLV-005",
+      "sampleId": "CORE-012",
+      "deliveredAt": "2026-06-17T15:20:00.000Z",
+      "deliveredBy": "陈明",
+      "receivingUnit": "岩矿测试中心",
+      "remark": "西山金矿第二批第二次交付，光片已完成观察，茜素红染色片尚在制片中",
+      "deliveryType": "partial",
+      "slices": [
+        {
+          "id": "SL-012-B",
+          "method": "光片",
+          "status": "观察",
+          "hasObservation": true,
+          "observationId": "OBS-012B"
+        }
+      ],
+      "sampleSnapshot": {
+        "id": "CORE-012",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-07",
+        "coreBox": "BX-05",
+        "depth": "356.8-357.2m",
+        "owner": "陈明"
+      }
+    }
+  ],
+  "samples": [
     {
       "id": "CORE-001",
       "project": "东岭铜矿薄片",
@@ -50,7 +194,7 @@
           "id": "SL-001-A",
           "method": "茜素红染色",
           "observation": "",
-          "status": "染色",
+          "status": "研磨",
           "logs": [
             {
               "at": "2026-06-12T10:00:00.000Z",
@@ -61,11 +205,6 @@
               "at": "2026-06-13T11:20:00.000Z",
               "step": "切割",
               "note": "完成粗切"
-            },
-            {
-              "at": "2026-06-19T02:18:53.933Z",
-              "step": "染色",
-              "note": "测试不同步骤"
             }
           ],
           "observations": []
@@ -79,34 +218,19 @@
       "coreBox": "BX-10",
       "depth": "132.1-132.5m",
       "owner": "陆川",
-      "status": "制片中",
+      "status": "待切割",
       "delivery": "未交付",
       "slices": [
         {
           "id": "SL-002-A",
           "method": "普通薄片",
           "observation": "",
-          "status": "染色",
+          "status": "取样",
           "logs": [
             {
               "at": "2026-06-14T09:00:00.000Z",
               "step": "取样",
               "note": "选取围岩段"
-            },
-            {
-              "at": "2026-06-18T14:54:41.406Z",
-              "step": "切割",
-              "note": "完成取样，准备切割"
-            },
-            {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            {
-              "at": "2026-06-19T02:26:47.275Z",
-              "step": "染色",
-              "note": "测试批量推进"
             }
           ],
           "observations": []
@@ -120,13 +244,13 @@
       "coreBox": "BX-03",
       "depth": "85.6-86.0m",
       "owner": "陈明",
-      "status": "已交付",
-      "delivery": "已交付",
+      "status": "待观察",
+      "delivery": "未交付",
       "slices": [
         {
           "id": "SL-003-A",
           "method": "茜素红染色",
-          "observation": "矽卡岩化大理岩；方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%；中细粒变晶结构，块状构造，局部条带",
+          "observation": "",
           "status": "观察",
           "logs": [
             {
@@ -150,78 +274,7 @@
               "note": "茜素红+铁氰化钾"
             }
           ],
-          "observations": [
-            {
-              "id": "OBS-1781685423409",
-              "at": "2026-06-17T08:37:03.409Z",
-              "lithology": "矽卡岩化灰岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "晶粒结构，条带状构造",
-              "remark": "黄铜矿呈他形粒状沿条带分布，粒径0.05-0.2mm"
-            },
-            {
-              "id": "OBS-1781685496589",
-              "at": "2026-06-17T08:38:16.589Z",
-              "lithology": "",
-              "minerals": "",
-              "texture": "",
-              "remark": "二次复查：矿化程度增强，建议取样化验"
-            },
-            {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-            },
-            {
-              "id": "OBS-1781837983792",
-              "at": "2026-06-19T02:59:43.792Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第四次镜下复查：发现黄铜矿品位明显升高，建议加密采样"
-            }
-          ]
-        },
-        {
-          "id": "SL-003-B",
-          "method": "普通薄片",
-          "observation": "矽卡岩化大理岩；方解石60%+透辉石20%+石榴子石15%+黄铜矿5%；中细粒变晶结构，块状构造",
-          "status": "观察",
-          "logs": [
-            {
-              "at": "2026-06-10T14:00:00.000Z",
-              "step": "取样",
-              "note": "矿化富集带"
-            },
-            {
-              "at": "2026-06-11T08:00:00.000Z",
-              "step": "切割",
-              "note": "定向切割"
-            },
-            {
-              "at": "2026-06-12T10:00:00.000Z",
-              "step": "研磨",
-              "note": "0.03mm 厚度"
-            },
-            {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
-            }
-          ],
-          "observations": [
-            {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-            }
-          ]
+          "observations": []
         }
       ]
     },
@@ -240,6 +293,16 @@
           "method": "光片",
           "observation": "可见自然金颗粒，粒径约0.02mm",
           "status": "观察",
+          "observations": [
+            {
+              "id": "OBS-004",
+              "at": "2026-06-05T16:00:00.000Z",
+              "lithology": "硅化蚀变岩",
+              "minerals": "石英70%+黄铁矿15%+自然金0.5%+其他14.5%",
+              "texture": "晶粒结构，块状构造",
+              "remark": "自然金呈不规则粒状嵌布于石英颗粒间，粒径0.01-0.03mm"
+            }
+          ],
           "logs": [
             {
               "at": "2026-06-01T10:00:00.000Z",
@@ -266,8 +329,7 @@
               "step": "观察",
               "note": "可见自然金颗粒"
             }
-          ],
-          "observations": []
+          ]
         }
       ]
     },
@@ -321,22 +383,12 @@
           "id": "SL-006-A",
           "method": "光片",
           "observation": "",
-          "status": "染色",
+          "status": "切割",
           "logs": [
             {
               "at": "2026-06-15T10:00:00.000Z",
               "step": "取样",
               "note": "黄铁矿化带"
-            },
-            {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            {
-              "at": "2026-06-19T02:18:38.333Z",
-              "step": "染色",
-              "note": "测试同步骤批量推进"
             }
           ],
           "observations": []
@@ -345,27 +397,12 @@
           "id": "SL-006-B",
           "method": "普通薄片",
           "observation": "",
-          "status": "染色",
+          "status": "取样",
           "logs": [
             {
               "at": "2026-06-15T10:00:00.000Z",
               "step": "取样",
               "note": "围岩"
-            },
-            {
-              "at": "2026-06-18T14:54:41.407Z",
-              "step": "切割",
-              "note": "完成取样，准备切割"
-            },
-            {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            {
-              "at": "2026-06-19T02:18:38.333Z",
-              "step": "染色",
-              "note": "测试同步骤批量推进"
             }
           ],
           "observations": []
@@ -379,29 +416,19 @@
       "coreBox": "BX-15",
       "depth": "178.5-178.9m",
       "owner": "王涛",
-      "status": "制片中",
+      "status": "待切割",
       "delivery": "未交付",
       "slices": [
         {
           "id": "SL-007-A",
           "method": "普通薄片",
           "observation": "",
-          "status": "研磨",
+          "status": "取样",
           "logs": [
             {
               "at": "2026-06-16T09:00:00.000Z",
               "step": "取样",
               "note": "条带状矿石"
-            },
-            {
-              "at": "2026-06-19T02:29:05.460Z",
-              "step": "切割",
-              "note": "测试批量推进取样→切割"
-            },
-            {
-              "at": "2026-06-19T02:33:08.488Z",
-              "step": "研磨",
-              "note": "综合测试：批量推进切割→研磨"
             }
           ],
           "observations": []
@@ -464,6 +491,16 @@
           "method": "光片",
           "observation": "闪锌矿+方铅矿共生",
           "status": "观察",
+          "observations": [
+            {
+              "id": "OBS-009",
+              "at": "2026-05-24T16:00:00.000Z",
+              "lithology": "中细粒砂岩",
+              "minerals": "闪锌矿35%+方铅矿25%+黄铁矿10%+石英20%+其他10%",
+              "texture": "他形晶粒结构，浸染状构造",
+              "remark": "闪锌矿与方铅矿紧密共生，闪锌矿内见乳浊状黄铜矿固溶体分离物"
+            }
+          ],
           "logs": [
             {
               "at": "2026-05-20T10:00:00.000Z",
@@ -490,8 +527,7 @@
               "step": "观察",
               "note": "闪锌矿+方铅矿共生"
             }
-          ],
-          "observations": []
+          ]
         }
       ]
     },
@@ -509,7 +545,7 @@
           "id": "SL-010-A",
           "method": "普通薄片",
           "observation": "",
-          "status": "染色",
+          "status": "研磨",
           "logs": [
             {
               "at": "2026-06-13T10:00:00.000Z",
@@ -520,2455 +556,269 @@
               "at": "2026-06-14T08:00:00.000Z",
               "step": "切割",
               "note": ""
-            },
-            {
-              "at": "2026-06-19T02:29:24.136Z",
-              "step": "染色",
-              "note": "测试混合错误"
             }
           ],
           "observations": []
         }
       ]
-    }
-  ],
-  "deliveries": [
-    {
-      "id": "DLV-1781790820715",
-      "sampleId": "CORE-003",
-      "deliveredAt": "2026-06-18T13:53:40.715Z",
-      "deliveredBy": "测试交付员",
-      "receivingUnit": "地质分析中心",
-      "remark": "交付剩余切片SL-003-B",
-      "deliveryType": "full",
-      "slices": [
-        {
-          "id": "SL-003-B",
-          "method": "普通薄片",
-          "status": "观察",
-          "hasObservation": true,
-          "observationId": "OBS-1781780000001"
-        }
-      ],
-      "sampleSnapshot": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明"
-      }
     },
     {
-      "id": "DLV-1781790763883",
-      "sampleId": "CORE-003",
-      "deliveredAt": "2026-06-18T13:52:43.883Z",
-      "deliveredBy": "测试交付员",
-      "receivingUnit": "地质分析中心",
-      "remark": "部分交付测试 - 只交付SL-003-A",
-      "deliveryType": "partial",
+      "id": "CORE-011",
+      "project": "南山铁矿",
+      "borehole": "ZK-32",
+      "coreBox": "BX-09",
+      "depth": "78.3-78.7m",
+      "owner": "陆川",
+      "status": "制片中",
+      "delivery": "部分交付",
       "slices": [
         {
-          "id": "SL-003-A",
-          "method": "茜素红染色",
-          "status": "观察",
-          "hasObservation": true,
-          "observationId": "OBS-1781685720208"
-        }
-      ],
-      "sampleSnapshot": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明"
-      }
-    },
-    {
-      "id": "DLV-001",
-      "sampleId": "CORE-004",
-      "deliveredAt": "2026-06-06T10:30:00.000Z",
-      "deliveredBy": "李雪",
-      "receivingUnit": "地质分析中心",
-      "remark": "西山金矿首批薄片交付，共1个切片",
-      "slices": [
-        {
-          "id": "SL-004-A",
+          "id": "SL-011-A",
           "method": "光片",
+          "observation": "磁铁矿呈自形-半自形粒状",
           "status": "观察",
-          "hasObservation": true,
-          "observationId": "OBS-004"
-        }
-      ],
-      "sampleSnapshot": {
-        "id": "CORE-004",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-05",
-        "coreBox": "BX-12",
-        "depth": "245.2-245.6m",
-        "owner": "陈明"
-      },
-      "deliveryType": "full"
-    },
-    {
-      "id": "DLV-002",
-      "sampleId": "CORE-009",
-      "deliveredAt": "2026-05-25T14:00:00.000Z",
-      "deliveredBy": "王涛",
-      "receivingUnit": "岩矿鉴定实验室",
-      "remark": "铅锌矿光片交付，含黄铜矿固溶体分离特征",
-      "slices": [
-        {
-          "id": "SL-009-A",
-          "method": "光片",
-          "status": "观察",
-          "hasObservation": true,
-          "observationId": "OBS-009"
-        }
-      ],
-      "sampleSnapshot": {
-        "id": "CORE-009",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-16",
-        "depth": "195.2-195.6m",
-        "owner": "王涛"
-      },
-      "deliveryType": "full"
-    }
-  ],
-  "methods": [
-    {
-      "id": "M-001",
-      "name": "普通薄片",
-      "description": "标准岩矿薄片制片，厚度0.03mm",
-      "enabled": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "sortOrder": 1,
-      "isDefault": true
-    },
-    {
-      "id": "M-002",
-      "name": "茜素红染色",
-      "description": "碳酸盐矿物染色，区分方解石/白云石",
-      "enabled": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "sortOrder": 2,
-      "isDefault": false
-    },
-    {
-      "id": "M-003",
-      "name": "光片",
-      "description": "不透明矿物光片制片，用于反光显微镜观察",
-      "enabled": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "sortOrder": 3,
-      "isDefault": false
-    },
-    {
-      "id": "M-004",
-      "name": "油浸薄片",
-      "description": "油浸法制备薄片，用于精确测定矿物折射率",
-      "enabled": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "sortOrder": 4,
-      "isDefault": false
-    },
-    {
-      "id": "M-005",
-      "name": "电子探针片",
-      "description": "电子探针显微分析用样品片",
-      "enabled": false,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "sortOrder": 5,
-      "isDefault": false
-    }
-  ],
-  "auditLog": [
-    {
-      "id": "AUD-1781837983793-yc5r",
-      "sampleId": "CORE-003",
-      "action": "observation:create",
-      "actionLabel": "填写观察结果",
-      "operator": "observer",
-      "operatorName": "观察人员",
-      "timestamp": "2026-06-19T02:59:43.793Z",
-      "sourceApi": "POST /api/samples/:id/slices/:sliceId/observations",
-      "note": "切片 SL-003-A 观察记录：3 → 4 条",
-      "beforeSummary": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "已交付",
-        "delivery": "已交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "observationCount": 3,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "茜素红+铁氰化钾"
-            },
-            "lastObservation": {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
+          "observations": [
+            {
+              "id": "OBS-011",
+              "at": "2026-06-14T16:00:00.000Z",
+              "lithology": "磁铁石英岩",
+              "minerals": "磁铁矿60%+石英30%+赤铁矿8%+其他2%",
+              "texture": "自形-半自形粒状结构，条带状构造",
+              "remark": "磁铁矿呈自形-半自形粒状，粒度0.1-0.5mm，沿条带密集分布"
             }
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "observationCount": 1,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
+          ],
+          "logs": [
+            {
+              "at": "2026-06-11T09:00:00.000Z",
+              "step": "取样",
+              "note": "富磁铁矿条带"
             },
-            "lastObservation": {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-            }
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "已交付",
-        "delivery": "已交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "observationCount": 4,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "茜素红+铁氰化钾"
-            },
-            "lastObservation": {
-              "id": "OBS-1781837983792",
-              "at": "2026-06-19T02:59:43.792Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第四次镜下复查：发现黄铜矿品位明显升高，建议加密采样"
-            }
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "observationCount": 1,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
-            },
-            "lastObservation": {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-            }
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "已交付",
-        "delivery": "已交付",
-        "slices": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "observation": "矽卡岩化大理岩；方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%；中细粒变晶结构，块状构造，局部条带",
-            "status": "观察",
-            "logs": [
-              {
-                "at": "2026-06-10T14:00:00.000Z",
-                "step": "取样",
-                "note": "矿化富集带"
-              },
-              {
-                "at": "2026-06-11T08:00:00.000Z",
-                "step": "切割",
-                "note": "定向切割"
-              },
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "研磨",
-                "note": "0.03mm 厚度"
-              },
-              {
-                "at": "2026-06-13T16:00:00.000Z",
-                "step": "染色",
-                "note": "茜素红+铁氰化钾"
-              }
-            ],
-            "observations": [
-              {
-                "id": "OBS-1781685423409",
-                "at": "2026-06-17T08:37:03.409Z",
-                "lithology": "矽卡岩化灰岩",
-                "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-                "texture": "晶粒结构，条带状构造",
-                "remark": "黄铜矿呈他形粒状沿条带分布，粒径0.05-0.2mm"
-              },
-              {
-                "id": "OBS-1781685496589",
-                "at": "2026-06-17T08:38:16.589Z",
-                "lithology": "",
-                "minerals": "",
-                "texture": "",
-                "remark": "二次复查：矿化程度增强，建议取样化验"
-              },
-              {
-                "id": "OBS-1781685720208",
-                "at": "2026-06-17T08:42:00.208Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-                "texture": "中细粒变晶结构，块状构造，局部条带",
-                "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-              },
-              {
-                "id": "OBS-1781837983792",
-                "at": "2026-06-19T02:59:43.792Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-                "texture": "中细粒变晶结构，块状构造，局部条带",
-                "remark": "第四次镜下复查：发现黄铜矿品位明显升高，建议加密采样"
-              }
-            ]
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "observation": "矽卡岩化大理岩；方解石60%+透辉石20%+石榴子石15%+黄铜矿5%；中细粒变晶结构，块状构造",
-            "status": "观察",
-            "logs": [
-              {
-                "at": "2026-06-10T14:00:00.000Z",
-                "step": "取样",
-                "note": "矿化富集带"
-              },
-              {
-                "at": "2026-06-11T08:00:00.000Z",
-                "step": "切割",
-                "note": "定向切割"
-              },
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "研磨",
-                "note": "0.03mm 厚度"
-              },
-              {
-                "at": "2026-06-13T16:00:00.000Z",
-                "step": "染色",
-                "note": "未染色"
-              }
-            ],
-            "observations": [
-              {
-                "id": "OBS-1781780000001",
-                "at": "2026-06-17T09:00:00.000Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-                "texture": "中细粒变晶结构，块状构造",
-                "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-              }
-            ]
-          }
-        ]
-      },
-      "observationDiff": {
-        "sliceId": "SL-003-A",
-        "prevObsId": "OBS-1781685720208",
-        "newObsId": "OBS-1781837983792",
-        "changes": [
-          {
-            "field": "remark",
-            "label": "备注",
-            "oldValue": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中",
-            "newValue": "第四次镜下复查：发现黄铜矿品位明显升高，建议加密采样"
-          }
-        ]
-      },
-      "sliceId": "SL-003-A",
-      "observationId": "OBS-1781837983792"
-    },
-    {
-      "id": "AUD-1781836388488-miql",
-      "sampleId": "CORE-007",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:33:08.488Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-007-A，从「切割」推进到「研磨」，批量操作ID：BATCH-1781836388488",
-      "beforeSummary": {
-        "id": "CORE-007",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-15",
-        "depth": "178.5-178.9m",
-        "owner": "王涛",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-007-A",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:29:05.460Z",
-              "step": "切割",
-              "note": "测试批量推进取样→切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-007",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-15",
-        "depth": "178.5-178.9m",
-        "owner": "王涛",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-007-A",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:33:08.488Z",
-              "step": "研磨",
-              "note": "综合测试：批量推进切割→研磨"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-007",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-15",
-        "depth": "178.5-178.9m",
-        "owner": "王涛",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-007-A",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "研磨",
-            "logs": [
-              {
-                "at": "2026-06-16T09:00:00.000Z",
-                "step": "取样",
-                "note": "条带状矿石"
-              },
-              {
-                "at": "2026-06-19T02:29:05.460Z",
-                "step": "切割",
-                "note": "测试批量推进取样→切割"
-              },
-              {
-                "at": "2026-06-19T02:33:08.488Z",
-                "step": "研磨",
-                "note": "综合测试：批量推进切割→研磨"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781836388488-r8q8",
-      "sampleId": "CORE-1781780732614",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:33:08.488Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-020-A，从「切割」推进到「研磨」，批量操作ID：BATCH-1781836388488",
-      "beforeSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:29:05.460Z",
-              "step": "切割",
-              "note": "测试批量推进取样→切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:33:08.488Z",
-              "step": "研磨",
-              "note": "综合测试：批量推进切割→研磨"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "observation": "",
-            "observations": [],
-            "status": "研磨",
-            "logs": [
-              {
-                "at": "2026-06-18T11:05:32.614Z",
-                "step": "取样",
-                "note": "创建初始切片任务"
-              },
-              {
-                "at": "2026-06-19T02:29:05.460Z",
-                "step": "切割",
-                "note": "测试批量推进取样→切割"
-              },
-              {
-                "at": "2026-06-19T02:33:08.488Z",
-                "step": "研磨",
-                "note": "综合测试：批量推进切割→研磨"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781836164136-0i7i",
-      "sampleId": "CORE-010",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:29:24.136Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-010-A，从「研磨」推进到「染色」，批量操作ID：BATCH-1781836164136",
-      "beforeSummary": {
-        "id": "CORE-010",
-        "project": "南山铁矿",
-        "borehole": "ZK-31",
-        "coreBox": "BX-07",
-        "depth": "45.8-46.2m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-010-A",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-14T08:00:00.000Z",
+            {
+              "at": "2026-06-12T08:00:00.000Z",
               "step": "切割",
               "note": ""
             },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-010",
-        "project": "南山铁矿",
-        "borehole": "ZK-31",
-        "coreBox": "BX-07",
-        "depth": "45.8-46.2m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-010-A",
-            "method": "普通薄片",
-            "status": "染色",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:29:24.136Z",
+            {
+              "at": "2026-06-13T10:00:00.000Z",
+              "step": "研磨",
+              "note": ""
+            },
+            {
+              "at": "2026-06-14T08:00:00.000Z",
               "step": "染色",
-              "note": "测试混合错误"
+              "note": ""
             },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-010",
-        "project": "南山铁矿",
-        "borehole": "ZK-31",
-        "coreBox": "BX-07",
-        "depth": "45.8-46.2m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-010-A",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "染色",
-            "logs": [
-              {
-                "at": "2026-06-13T10:00:00.000Z",
-                "step": "取样",
-                "note": "磁铁矿带"
-              },
-              {
-                "at": "2026-06-14T08:00:00.000Z",
-                "step": "切割",
-                "note": ""
-              },
-              {
-                "at": "2026-06-19T02:29:24.136Z",
-                "step": "染色",
-                "note": "测试混合错误"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781836145460-2rj1",
-      "sampleId": "CORE-007",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:29:05.460Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-007-A，从「取样」推进到「切割」，批量操作ID：BATCH-1781836145460",
-      "beforeSummary": {
-        "id": "CORE-007",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-15",
-        "depth": "178.5-178.9m",
-        "owner": "王涛",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-007-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-16T09:00:00.000Z",
+            {
+              "at": "2026-06-14T16:00:00.000Z",
+              "step": "观察",
+              "note": "磁铁矿呈自形-半自形粒状"
+            }
+          ]
+        },
+        {
+          "id": "SL-011-B",
+          "method": "普通薄片",
+          "observation": "",
+          "status": "染色",
+          "logs": [
+            {
+              "at": "2026-06-12T10:00:00.000Z",
               "step": "取样",
-              "note": "条带状矿石"
+              "note": "围岩蚀变带"
             },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-007",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-15",
-        "depth": "178.5-178.9m",
-        "owner": "王涛",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-007-A",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:29:05.460Z",
+            {
+              "at": "2026-06-13T09:00:00.000Z",
               "step": "切割",
-              "note": "测试批量推进取样→切割"
+              "note": ""
             },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-007",
-        "project": "北山铅锌矿",
-        "borehole": "ZK-22",
-        "coreBox": "BX-15",
-        "depth": "178.5-178.9m",
-        "owner": "王涛",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-007-A",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "切割",
-            "logs": [
-              {
-                "at": "2026-06-16T09:00:00.000Z",
-                "step": "取样",
-                "note": "条带状矿石"
-              },
-              {
-                "at": "2026-06-19T02:29:05.460Z",
-                "step": "切割",
-                "note": "测试批量推进取样→切割"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781836145460-au9n",
-      "sampleId": "CORE-1781780732614",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:29:05.460Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-020-A，从「取样」推进到「切割」，批量操作ID：BATCH-1781836145460",
-      "beforeSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:05:32.614Z",
+            {
+              "at": "2026-06-14T10:00:00.000Z",
+              "step": "研磨",
+              "note": ""
+            }
+          ],
+          "observations": []
+        },
+        {
+          "id": "SL-011-C",
+          "method": "茜素红染色",
+          "observation": "",
+          "status": "研磨",
+          "logs": [
+            {
+              "at": "2026-06-13T10:00:00.000Z",
               "step": "取样",
-              "note": "创建初始切片任务"
+              "note": "碳酸盐脉"
             },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:29:05.460Z",
-              "step": "切割",
-              "note": "测试批量推进取样→切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "observation": "",
-            "observations": [],
-            "status": "切割",
-            "logs": [
-              {
-                "at": "2026-06-18T11:05:32.614Z",
-                "step": "取样",
-                "note": "创建初始切片任务"
-              },
-              {
-                "at": "2026-06-19T02:29:05.460Z",
-                "step": "切割",
-                "note": "测试批量推进取样→切割"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781836007275-u5pw",
-      "sampleId": "CORE-002",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:26:47.275Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-002-A，从「研磨」推进到「染色」，批量操作ID：BATCH-1781836007275",
-      "beforeSummary": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "status": "染色",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:26:47.275Z",
-              "step": "染色",
-              "note": "测试批量推进"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "染色",
-            "logs": [
-              {
-                "at": "2026-06-14T09:00:00.000Z",
-                "step": "取样",
-                "note": "选取围岩段"
-              },
-              {
-                "at": "2026-06-18T14:54:41.406Z",
-                "step": "切割",
-                "note": "完成取样，准备切割"
-              },
-              {
-                "at": "2026-06-18T14:55:26.508Z",
-                "step": "研磨",
-                "note": "切割工序完成，准备研磨"
-              },
-              {
-                "at": "2026-06-19T02:26:47.275Z",
-                "step": "染色",
-                "note": "测试批量推进"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781835533933-mhun",
-      "sampleId": "CORE-001",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:18:53.933Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-001-A，从「研磨」推进到「染色」，批量操作ID：BATCH-1781835533933",
-      "beforeSummary": {
-        "id": "CORE-001",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-09",
-        "depth": "128.4-128.8m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-001-A",
-            "method": "茜素红染色",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-13T11:20:00.000Z",
-              "step": "切割",
-              "note": "完成粗切"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-001",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-09",
-        "depth": "128.4-128.8m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-001-A",
-            "method": "茜素红染色",
-            "status": "染色",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:18:53.933Z",
-              "step": "染色",
-              "note": "测试不同步骤"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-001",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-09",
-        "depth": "128.4-128.8m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-001-A",
-            "method": "茜素红染色",
-            "observation": "",
-            "status": "染色",
-            "logs": [
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "取样",
-                "note": "截取含矿化条带位置"
-              },
-              {
-                "at": "2026-06-13T11:20:00.000Z",
-                "step": "切割",
-                "note": "完成粗切"
-              },
-              {
-                "at": "2026-06-19T02:18:53.933Z",
-                "step": "染色",
-                "note": "测试不同步骤"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781835518333-scao",
-      "sampleId": "CORE-006",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-19T02:18:38.333Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 2 个切片：SL-006-A、SL-006-B，从「研磨」推进到「染色」，批量操作ID：BATCH-1781835518333",
-      "beforeSummary": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "status": "染色",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:18:38.333Z",
-              "step": "染色",
-              "note": "测试同步骤批量推进"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "status": "染色",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-19T02:18:38.333Z",
-              "step": "染色",
-              "note": "测试同步骤批量推进"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "observation": "",
-            "status": "染色",
-            "logs": [
-              {
-                "at": "2026-06-15T10:00:00.000Z",
-                "step": "取样",
-                "note": "黄铁矿化带"
-              },
-              {
-                "at": "2026-06-18T14:55:26.508Z",
-                "step": "研磨",
-                "note": "切割工序完成，准备研磨"
-              },
-              {
-                "at": "2026-06-19T02:18:38.333Z",
-                "step": "染色",
-                "note": "测试同步骤批量推进"
-              }
-            ],
-            "observations": []
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "染色",
-            "logs": [
-              {
-                "at": "2026-06-15T10:00:00.000Z",
-                "step": "取样",
-                "note": "围岩"
-              },
-              {
-                "at": "2026-06-18T14:54:41.407Z",
-                "step": "切割",
-                "note": "完成取样，准备切割"
-              },
-              {
-                "at": "2026-06-18T14:55:26.508Z",
-                "step": "研磨",
-                "note": "切割工序完成，准备研磨"
-              },
-              {
-                "at": "2026-06-19T02:18:38.333Z",
-                "step": "染色",
-                "note": "测试同步骤批量推进"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781794526508-b1tl",
-      "sampleId": "CORE-006",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-18T14:55:26.508Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 2 个切片：SL-006-A、SL-006-B，从「切割」推进到「研磨」，批量操作ID：BATCH-1781794526508",
-      "beforeSummary": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-15T10:00:00.000Z",
-              "step": "取样",
-              "note": "黄铁矿化带"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:54:41.407Z",
-              "step": "切割",
-              "note": "完成取样，准备切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "observation": "",
-            "status": "研磨",
-            "logs": [
-              {
-                "at": "2026-06-15T10:00:00.000Z",
-                "step": "取样",
-                "note": "黄铁矿化带"
-              },
-              {
-                "at": "2026-06-18T14:55:26.508Z",
-                "step": "研磨",
-                "note": "切割工序完成，准备研磨"
-              }
-            ],
-            "observations": []
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "研磨",
-            "logs": [
-              {
-                "at": "2026-06-15T10:00:00.000Z",
-                "step": "取样",
-                "note": "围岩"
-              },
-              {
-                "at": "2026-06-18T14:54:41.407Z",
-                "step": "切割",
-                "note": "完成取样，准备切割"
-              },
-              {
-                "at": "2026-06-18T14:55:26.508Z",
-                "step": "研磨",
-                "note": "切割工序完成，准备研磨"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781794526508-0vqn",
-      "sampleId": "CORE-002",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-18T14:55:26.508Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-002-A，从「切割」推进到「研磨」，批量操作ID：BATCH-1781794526508",
-      "beforeSummary": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:54:41.406Z",
-              "step": "切割",
-              "note": "完成取样，准备切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "status": "研磨",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:55:26.508Z",
-              "step": "研磨",
-              "note": "切割工序完成，准备研磨"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "研磨",
-            "logs": [
-              {
-                "at": "2026-06-14T09:00:00.000Z",
-                "step": "取样",
-                "note": "选取围岩段"
-              },
-              {
-                "at": "2026-06-18T14:54:41.406Z",
-                "step": "切割",
-                "note": "完成取样，准备切割"
-              },
-              {
-                "at": "2026-06-18T14:55:26.508Z",
-                "step": "研磨",
-                "note": "切割工序完成，准备研磨"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781794481407-7ig2",
-      "sampleId": "CORE-006",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-18T14:54:41.407Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-006-B，从「取样」推进到「切割」，批量操作ID：BATCH-1781794481406",
-      "beforeSummary": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-15T10:00:00.000Z",
-              "step": "取样",
-              "note": "黄铁矿化带"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-15T10:00:00.000Z",
-              "step": "取样",
-              "note": "围岩"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-15T10:00:00.000Z",
-              "step": "取样",
-              "note": "黄铁矿化带"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:54:41.407Z",
-              "step": "切割",
-              "note": "完成取样，准备切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-006",
-        "project": "西山金矿勘探",
-        "borehole": "ZK-06",
-        "coreBox": "BX-02",
-        "depth": "312.4-312.8m",
-        "owner": "李雪",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-006-A",
-            "method": "光片",
-            "observation": "",
-            "status": "切割",
-            "logs": [
-              {
-                "at": "2026-06-15T10:00:00.000Z",
-                "step": "取样",
-                "note": "黄铁矿化带"
-              }
-            ],
-            "observations": []
-          },
-          {
-            "id": "SL-006-B",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "切割",
-            "logs": [
-              {
-                "at": "2026-06-15T10:00:00.000Z",
-                "step": "取样",
-                "note": "围岩"
-              },
-              {
-                "at": "2026-06-18T14:54:41.407Z",
-                "step": "切割",
-                "note": "完成取样，准备切割"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781794481407-cjki",
-      "sampleId": "CORE-002",
-      "action": "step:batch-advance",
-      "actionLabel": "批量推进步骤",
-      "operator": "producer",
-      "operatorName": "制片人员",
-      "timestamp": "2026-06-18T14:54:41.407Z",
-      "sourceApi": "POST /api/slices/batch-advance",
-      "note": "批量推进 1 个切片：SL-002-A，从「取样」推进到「切割」，批量操作ID：BATCH-1781794481406",
-      "beforeSummary": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
+            {
               "at": "2026-06-14T09:00:00.000Z",
-              "step": "取样",
-              "note": "选取围岩段"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "status": "切割",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T14:54:41.406Z",
               "step": "切割",
-              "note": "完成取样，准备切割"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-002",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-17",
-        "coreBox": "BX-10",
-        "depth": "132.1-132.5m",
-        "owner": "陆川",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-002-A",
-            "method": "普通薄片",
-            "observation": "",
-            "status": "切割",
-            "logs": [
-              {
-                "at": "2026-06-14T09:00:00.000Z",
-                "step": "取样",
-                "note": "选取围岩段"
-              },
-              {
-                "at": "2026-06-18T14:54:41.406Z",
-                "step": "切割",
-                "note": "完成取样，准备切割"
-              }
-            ],
-            "observations": []
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781790820715-tplk",
-      "sampleId": "CORE-003",
-      "action": "delivery:confirm",
-      "actionLabel": "确认交付",
-      "operator": "deliverer",
-      "operatorName": "交付人员",
-      "timestamp": "2026-06-18T13:53:40.715Z",
-      "sourceApi": "POST /api/samples/:id/deliveries",
-      "note": "交付类型：全部交付，交付切片：1 个（SL-003-B）",
-      "beforeSummary": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "部分交付",
-        "delivery": "部分交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "observationCount": 3,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "茜素红+铁氰化钾"
-            },
-            "lastObservation": {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
+              "note": ""
             }
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "observationCount": 1,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
-            },
-            "lastObservation": {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-            }
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "已交付",
-        "delivery": "已交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "observationCount": 3,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "茜素红+铁氰化钾"
-            },
-            "lastObservation": {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-            }
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "observationCount": 1,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
-            },
-            "lastObservation": {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-            }
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "已交付",
-        "delivery": "已交付",
-        "slices": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "observation": "矽卡岩化大理岩；方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%；中细粒变晶结构，块状构造，局部条带",
-            "status": "观察",
-            "logs": [
-              {
-                "at": "2026-06-10T14:00:00.000Z",
-                "step": "取样",
-                "note": "矿化富集带"
-              },
-              {
-                "at": "2026-06-11T08:00:00.000Z",
-                "step": "切割",
-                "note": "定向切割"
-              },
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "研磨",
-                "note": "0.03mm 厚度"
-              },
-              {
-                "at": "2026-06-13T16:00:00.000Z",
-                "step": "染色",
-                "note": "茜素红+铁氰化钾"
-              }
-            ],
-            "observations": [
-              {
-                "id": "OBS-1781685423409",
-                "at": "2026-06-17T08:37:03.409Z",
-                "lithology": "矽卡岩化灰岩",
-                "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-                "texture": "晶粒结构，条带状构造",
-                "remark": "黄铜矿呈他形粒状沿条带分布，粒径0.05-0.2mm"
-              },
-              {
-                "id": "OBS-1781685496589",
-                "at": "2026-06-17T08:38:16.589Z",
-                "lithology": "",
-                "minerals": "",
-                "texture": "",
-                "remark": "二次复查：矿化程度增强，建议取样化验"
-              },
-              {
-                "id": "OBS-1781685720208",
-                "at": "2026-06-17T08:42:00.208Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-                "texture": "中细粒变晶结构，块状构造，局部条带",
-                "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-              }
-            ]
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "observation": "矽卡岩化大理岩；方解石60%+透辉石20%+石榴子石15%+黄铜矿5%；中细粒变晶结构，块状构造",
-            "status": "观察",
-            "logs": [
-              {
-                "at": "2026-06-10T14:00:00.000Z",
-                "step": "取样",
-                "note": "矿化富集带"
-              },
-              {
-                "at": "2026-06-11T08:00:00.000Z",
-                "step": "切割",
-                "note": "定向切割"
-              },
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "研磨",
-                "note": "0.03mm 厚度"
-              },
-              {
-                "at": "2026-06-13T16:00:00.000Z",
-                "step": "染色",
-                "note": "未染色"
-              }
-            ],
-            "observations": [
-              {
-                "id": "OBS-1781780000001",
-                "at": "2026-06-17T09:00:00.000Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-                "texture": "中细粒变晶结构，块状构造",
-                "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-              }
-            ]
-          }
-        ]
-      },
-      "deliverySnapshot": {
-        "id": "DLV-1781790820715",
-        "sampleId": "CORE-003",
-        "deliveredAt": "2026-06-18T13:53:40.715Z",
-        "deliveredBy": "测试交付员",
-        "receivingUnit": "地质分析中心",
-        "remark": "交付剩余切片SL-003-B",
-        "deliveryType": "full",
-        "slices": [
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "hasObservation": true,
-            "observationId": "OBS-1781780000001"
-          }
-        ],
-        "sampleSnapshot": {
-          "id": "CORE-003",
-          "project": "东岭铜矿薄片",
-          "borehole": "ZK-18",
-          "coreBox": "BX-03",
-          "depth": "85.6-86.0m",
-          "owner": "陈明"
+          ],
+          "observations": []
         }
-      }
+      ]
     },
     {
-      "id": "AUD-1781790763883-aewr",
-      "sampleId": "CORE-003",
-      "action": "delivery:confirm",
-      "actionLabel": "确认交付",
-      "operator": "deliverer",
-      "operatorName": "交付人员",
-      "timestamp": "2026-06-18T13:52:43.883Z",
-      "sourceApi": "POST /api/samples/:id/deliveries",
-      "note": "交付类型：部分交付，交付切片：1 个（SL-003-A）",
-      "beforeSummary": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "待观察",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "observationCount": 3,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "茜素红+铁氰化钾"
-            },
-            "lastObservation": {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
+      "id": "CORE-012",
+      "project": "西山金矿勘探",
+      "borehole": "ZK-07",
+      "coreBox": "BX-05",
+      "depth": "356.8-357.2m",
+      "owner": "陈明",
+      "status": "待观察",
+      "delivery": "部分交付",
+      "slices": [
+        {
+          "id": "SL-012-A",
+          "method": "普通薄片",
+          "observation": "可见石英脉型金矿化，黄铁矿稠密浸染",
+          "status": "观察",
+          "observations": [
+            {
+              "id": "OBS-012A",
+              "at": "2026-06-09T15:00:00.000Z",
+              "lithology": "硅化蚀变花岗岩",
+              "minerals": "石英55%+长石20%+黄铁矿18%+自然金0.3%+其他6.7%",
+              "texture": "碎裂结构，脉状构造",
+              "remark": "石英脉中黄铁矿稠密浸染状分布，可见自然金包裹于黄铁矿中"
             }
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "observationCount": 1,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
+          ],
+          "logs": [
+            {
+              "at": "2026-06-05T10:00:00.000Z",
+              "step": "取样",
+              "note": "石英脉型矿化带"
             },
-            "lastObservation": {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-            }
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "部分交付",
-        "delivery": "部分交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "observationCount": 3,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "茜素红+铁氰化钾"
+            {
+              "at": "2026-06-06T08:00:00.000Z",
+              "step": "切割",
+              "note": ""
             },
-            "lastObservation": {
-              "id": "OBS-1781685720208",
-              "at": "2026-06-17T08:42:00.208Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-              "texture": "中细粒变晶结构，块状构造，局部条带",
-              "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-            }
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "status": "观察",
-            "observationCount": 1,
-            "lastLog": {
-              "at": "2026-06-13T16:00:00.000Z",
-              "step": "染色",
-              "note": "未染色"
+            {
+              "at": "2026-06-07T10:00:00.000Z",
+              "step": "研磨",
+              "note": ""
             },
-            "lastObservation": {
-              "id": "OBS-1781780000001",
-              "at": "2026-06-17T09:00:00.000Z",
-              "lithology": "矽卡岩化大理岩",
-              "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-              "texture": "中细粒变晶结构，块状构造",
-              "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
+            {
+              "at": "2026-06-08T14:00:00.000Z",
+              "step": "染色",
+              "note": ""
+            },
+            {
+              "at": "2026-06-09T15:00:00.000Z",
+              "step": "观察",
+              "note": "可见石英脉型金矿化"
             }
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-003",
-        "project": "东岭铜矿薄片",
-        "borehole": "ZK-18",
-        "coreBox": "BX-03",
-        "depth": "85.6-86.0m",
-        "owner": "陈明",
-        "status": "部分交付",
-        "delivery": "部分交付",
-        "slices": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "observation": "矽卡岩化大理岩；方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%；中细粒变晶结构，块状构造，局部条带",
-            "status": "观察",
-            "logs": [
-              {
-                "at": "2026-06-10T14:00:00.000Z",
-                "step": "取样",
-                "note": "矿化富集带"
-              },
-              {
-                "at": "2026-06-11T08:00:00.000Z",
-                "step": "切割",
-                "note": "定向切割"
-              },
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "研磨",
-                "note": "0.03mm 厚度"
-              },
-              {
-                "at": "2026-06-13T16:00:00.000Z",
-                "step": "染色",
-                "note": "茜素红+铁氰化钾"
-              }
-            ],
-            "observations": [
-              {
-                "id": "OBS-1781685423409",
-                "at": "2026-06-17T08:37:03.409Z",
-                "lithology": "矽卡岩化灰岩",
-                "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-                "texture": "晶粒结构，条带状构造",
-                "remark": "黄铜矿呈他形粒状沿条带分布，粒径0.05-0.2mm"
-              },
-              {
-                "id": "OBS-1781685496589",
-                "at": "2026-06-17T08:38:16.589Z",
-                "lithology": "",
-                "minerals": "",
-                "texture": "",
-                "remark": "二次复查：矿化程度增强，建议取样化验"
-              },
-              {
-                "id": "OBS-1781685720208",
-                "at": "2026-06-17T08:42:00.208Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石55%+透辉石25%+石榴子石12%+磁铁矿5%+黄铜矿3%",
-                "texture": "中细粒变晶结构，块状构造，局部条带",
-                "remark": "第三次镜下复查：黄铜矿呈不规则脉状充填于裂隙中"
-              }
-            ]
-          },
-          {
-            "id": "SL-003-B",
-            "method": "普通薄片",
-            "observation": "矽卡岩化大理岩；方解石60%+透辉石20%+石榴子石15%+黄铜矿5%；中细粒变晶结构，块状构造",
-            "status": "观察",
-            "logs": [
-              {
-                "at": "2026-06-10T14:00:00.000Z",
-                "step": "取样",
-                "note": "矿化富集带"
-              },
-              {
-                "at": "2026-06-11T08:00:00.000Z",
-                "step": "切割",
-                "note": "定向切割"
-              },
-              {
-                "at": "2026-06-12T10:00:00.000Z",
-                "step": "研磨",
-                "note": "0.03mm 厚度"
-              },
-              {
-                "at": "2026-06-13T16:00:00.000Z",
-                "step": "染色",
-                "note": "未染色"
-              }
-            ],
-            "observations": [
-              {
-                "id": "OBS-1781780000001",
-                "at": "2026-06-17T09:00:00.000Z",
-                "lithology": "矽卡岩化大理岩",
-                "minerals": "方解石60%+透辉石20%+石榴子石15%+黄铜矿5%",
-                "texture": "中细粒变晶结构，块状构造",
-                "remark": "黄铜矿呈浸染状分布，粒径0.03-0.1mm"
-              }
-            ]
-          }
-        ]
-      },
-      "deliverySnapshot": {
-        "id": "DLV-1781790763883",
-        "sampleId": "CORE-003",
-        "deliveredAt": "2026-06-18T13:52:43.883Z",
-        "deliveredBy": "测试交付员",
-        "receivingUnit": "地质分析中心",
-        "remark": "部分交付测试 - 只交付SL-003-A",
-        "deliveryType": "partial",
-        "slices": [
-          {
-            "id": "SL-003-A",
-            "method": "茜素红染色",
-            "status": "观察",
-            "hasObservation": true,
-            "observationId": "OBS-1781685720208"
-          }
-        ],
-        "sampleSnapshot": {
-          "id": "CORE-003",
-          "project": "东岭铜矿薄片",
-          "borehole": "ZK-18",
-          "coreBox": "BX-03",
-          "depth": "85.6-86.0m",
-          "owner": "陈明"
+          ]
+        },
+        {
+          "id": "SL-012-B",
+          "method": "光片",
+          "observation": "黄铁矿与毒砂共生，自然金呈裂隙金",
+          "status": "观察",
+          "observations": [
+            {
+              "id": "OBS-012B",
+              "at": "2026-06-16T14:30:00.000Z",
+              "lithology": "硅化黄铁矿化蚀变岩",
+              "minerals": "黄铁矿40%+毒砂15%+石英25%+自然金0.4%+其他19.6%",
+              "texture": "自形-半自形晶粒结构，浸染状构造",
+              "remark": "黄铁矿与毒砂紧密共生，自然金沿黄铁矿裂隙分布，粒径0.02-0.06mm"
+            }
+          ],
+          "logs": [
+            {
+              "at": "2026-06-11T09:00:00.000Z",
+              "step": "取样",
+              "note": "黄铁矿化蚀变带"
+            },
+            {
+              "at": "2026-06-12T08:00:00.000Z",
+              "step": "切割",
+              "note": ""
+            },
+            {
+              "at": "2026-06-13T10:00:00.000Z",
+              "step": "研磨",
+              "note": ""
+            },
+            {
+              "at": "2026-06-15T08:00:00.000Z",
+              "step": "染色",
+              "note": ""
+            },
+            {
+              "at": "2026-06-16T14:30:00.000Z",
+              "step": "观察",
+              "note": "黄铁矿与毒砂共生，见自然金"
+            }
+          ]
+        },
+        {
+          "id": "SL-012-C",
+          "method": "茜素红染色",
+          "observation": "方解石脉穿插，见碳酸盐化蚀变",
+          "status": "观察",
+          "observations": [
+            {
+              "id": "OBS-012C",
+              "at": "2026-06-18T10:00:00.000Z",
+              "lithology": "碳酸盐化蚀变岩",
+              "minerals": "方解石45%+石英25%+黄铁矿15%+绢云母10%+其他5%",
+              "texture": "交代残余结构，网脉状构造",
+              "remark": "方解石呈网脉状穿插，茜素红染色显深红色，见碳酸盐化交代现象"
+            }
+          ],
+          "logs": [
+            {
+              "at": "2026-06-12T10:00:00.000Z",
+              "step": "取样",
+              "note": "碳酸盐脉发育带"
+            },
+            {
+              "at": "2026-06-13T09:00:00.000Z",
+              "step": "切割",
+              "note": ""
+            },
+            {
+              "at": "2026-06-14T10:00:00.000Z",
+              "step": "研磨",
+              "note": ""
+            },
+            {
+              "at": "2026-06-17T08:00:00.000Z",
+              "step": "染色",
+              "note": "茜素红+铁氰化钾联合染色"
+            },
+            {
+              "at": "2026-06-18T10:00:00.000Z",
+              "step": "观察",
+              "note": "方解石脉穿插，见碳酸盐化蚀变"
+            }
+          ]
+        },
+        {
+          "id": "SL-012-D",
+          "method": "油浸薄片",
+          "observation": "",
+          "status": "研磨",
+          "logs": [
+            {
+              "at": "2026-06-14T10:00:00.000Z",
+              "step": "取样",
+              "note": "用于精确测折射率的部位"
+            },
+            {
+              "at": "2026-06-15T09:00:00.000Z",
+              "step": "切割",
+              "note": ""
+            }
+          ],
+          "observations": []
         }
-      }
-    },
-    {
-      "id": "AUD-1781780848290-yy20",
-      "sampleId": "CORE-1781780732614",
-      "action": "sample:rollback",
-      "actionLabel": "回滚样本",
-      "operator": "registrar",
-      "operatorName": "样本登记人员",
-      "timestamp": "2026-06-18T11:07:28.290Z",
-      "sourceApi": "POST /api/samples/:id/rollback",
-      "note": "回滚到审计记录 AUD-1781780732615-med1（创建样本，2026-06-18T11:05:32.615Z）",
-      "beforeSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:05:32.614Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-020-B",
-            "method": "茜素红染色",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:06:26.838Z",
-              "step": "取样",
-              "note": "批量追加切片任务"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:05:32.614Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "observation": "",
-            "observations": [],
-            "status": "取样",
-            "logs": [
-              {
-                "at": "2026-06-18T11:05:32.614Z",
-                "step": "取样",
-                "note": "创建初始切片任务"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781780786838-8i36",
-      "sampleId": "CORE-1781780732614",
-      "action": "slice:batch",
-      "actionLabel": "批量追加切片",
-      "operator": "registrar",
-      "operatorName": "样本登记人员",
-      "timestamp": "2026-06-18T11:06:26.838Z",
-      "sourceApi": "POST /api/samples/:id/slices/batch",
-      "note": "切片数量：1 → 2；新增切片 SL-020-B（茜素红染色）",
-      "beforeSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:05:32.614Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "afterSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 2,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:05:32.614Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            },
-            "lastObservation": null
-          },
-          {
-            "id": "SL-020-B",
-            "method": "茜素红染色",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:06:26.838Z",
-              "step": "取样",
-              "note": "批量追加切片任务"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "observation": "",
-            "observations": [],
-            "status": "取样",
-            "logs": [
-              {
-                "at": "2026-06-18T11:05:32.614Z",
-                "step": "取样",
-                "note": "创建初始切片任务"
-              }
-            ]
-          },
-          {
-            "id": "SL-020-B",
-            "method": "茜素红染色",
-            "observation": "",
-            "observations": [],
-            "status": "取样",
-            "logs": [
-              {
-                "at": "2026-06-18T11:06:26.838Z",
-                "step": "取样",
-                "note": "批量追加切片任务"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "AUD-1781780732615-med1",
-      "sampleId": "CORE-1781780732614",
-      "action": "sample:create",
-      "actionLabel": "创建样本",
-      "operator": "registrar",
-      "operatorName": "样本登记人员",
-      "timestamp": "2026-06-18T11:05:32.615Z",
-      "sourceApi": "POST /api/samples",
-      "note": "新建样本 CORE-1781780732614（测试项目），含 1 个切片",
-      "beforeSummary": null,
-      "afterSummary": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "sliceCount": 1,
-        "sliceStatuses": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "status": "取样",
-            "observationCount": 0,
-            "lastLog": {
-              "at": "2026-06-18T11:05:32.614Z",
-              "step": "取样",
-              "note": "创建初始切片任务"
-            },
-            "lastObservation": null
-          }
-        ]
-      },
-      "snapshot": {
-        "id": "CORE-1781780732614",
-        "project": "测试项目",
-        "borehole": "ZK-001",
-        "coreBox": "BX-01",
-        "depth": "100-102m",
-        "owner": "测试人",
-        "status": "制片中",
-        "delivery": "未交付",
-        "slices": [
-          {
-            "id": "SL-020-A",
-            "method": "普通薄片",
-            "observation": "",
-            "observations": [],
-            "status": "取样",
-            "logs": [
-              {
-                "at": "2026-06-18T11:05:32.614Z",
-                "step": "取样",
-                "note": "创建初始切片任务"
-              }
-            ]
-          }
-        ]
-      }
+      ]
     }
   ]
 }

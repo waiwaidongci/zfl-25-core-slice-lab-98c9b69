@@ -160,6 +160,66 @@ const seed = {
         depth: "195.2-195.6m",
         owner: "王涛"
       }
+    },
+    {
+      id: "DLV-003",
+      sampleId: "CORE-011",
+      deliveredAt: "2026-06-15T09:30:00.000Z",
+      deliveredBy: "陆川",
+      receivingUnit: "矿产资源研究所",
+      remark: "南山铁矿首批光片交付，普通薄片待制片完成后再交付",
+      deliveryType: "partial",
+      slices: [
+        { id: "SL-011-A", method: "光片", status: "观察", hasObservation: true, observationId: "OBS-011" }
+      ],
+      sampleSnapshot: {
+        id: "CORE-011",
+        project: "南山铁矿",
+        borehole: "ZK-32",
+        coreBox: "BX-09",
+        depth: "78.3-78.7m",
+        owner: "陆川"
+      }
+    },
+    {
+      id: "DLV-004",
+      sampleId: "CORE-012",
+      deliveredAt: "2026-06-10T11:00:00.000Z",
+      deliveredBy: "陈明",
+      receivingUnit: "岩矿测试中心",
+      remark: "西山金矿第二批首批普通薄片交付，光片和茜素红染色片待后续交付",
+      deliveryType: "partial",
+      slices: [
+        { id: "SL-012-A", method: "普通薄片", status: "观察", hasObservation: true, observationId: "OBS-012A" }
+      ],
+      sampleSnapshot: {
+        id: "CORE-012",
+        project: "西山金矿勘探",
+        borehole: "ZK-07",
+        coreBox: "BX-05",
+        depth: "356.8-357.2m",
+        owner: "陈明"
+      }
+    },
+    {
+      id: "DLV-005",
+      sampleId: "CORE-012",
+      deliveredAt: "2026-06-17T15:20:00.000Z",
+      deliveredBy: "陈明",
+      receivingUnit: "岩矿测试中心",
+      remark: "西山金矿第二批第二次交付，光片已完成观察，茜素红染色片尚在制片中",
+      deliveryType: "partial",
+      slices: [
+        { id: "SL-012-B", method: "光片", status: "观察", hasObservation: true, observationId: "OBS-012B" }
+      ],
+      sampleSnapshot: {
+        id: "CORE-012",
+        project: "西山金矿勘探",
+        borehole: "ZK-07",
+        coreBox: "BX-05",
+        depth: "356.8-357.2m",
+        owner: "陈明"
+      }
     }
   ],
   samples: [
@@ -292,6 +352,37 @@ const seed = {
       delivery: "未交付",
       slices: [
         { id: "SL-010-A", method: "普通薄片", observation: "", status: "研磨", logs: [{ at: "2026-06-13T10:00:00.000Z", step: "取样", note: "磁铁矿带" }, { at: "2026-06-14T08:00:00.000Z", step: "切割", note: "" }] }
+      ]
+    },
+    {
+      id: "CORE-011",
+      project: "南山铁矿",
+      borehole: "ZK-32",
+      coreBox: "BX-09",
+      depth: "78.3-78.7m",
+      owner: "陆川",
+      status: "制片中",
+      delivery: "部分交付",
+      slices: [
+        { id: "SL-011-A", method: "光片", observation: "磁铁矿呈自形-半自形粒状", status: "观察", observations: [{id:"OBS-011", at:"2026-06-14T16:00:00.000Z", lithology:"磁铁石英岩", minerals:"磁铁矿60%+石英30%+赤铁矿8%+其他2%", texture:"自形-半自形粒状结构，条带状构造", remark:"磁铁矿呈自形-半自形粒状，粒度0.1-0.5mm，沿条带密集分布"}], logs: [{ at: "2026-06-11T09:00:00.000Z", step: "取样", note: "富磁铁矿条带" }, { at: "2026-06-12T08:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-13T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-06-14T08:00:00.000Z", step: "染色", note: "" }, { at: "2026-06-14T16:00:00.000Z", step: "观察", note: "磁铁矿呈自形-半自形粒状" }] },
+        { id: "SL-011-B", method: "普通薄片", observation: "", status: "染色", logs: [{ at: "2026-06-12T10:00:00.000Z", step: "取样", note: "围岩蚀变带" }, { at: "2026-06-13T09:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-14T10:00:00.000Z", step: "研磨", note: "" }], observations: [] },
+        { id: "SL-011-C", method: "茜素红染色", observation: "", status: "研磨", logs: [{ at: "2026-06-13T10:00:00.000Z", step: "取样", note: "碳酸盐脉" }, { at: "2026-06-14T09:00:00.000Z", step: "切割", note: "" }], observations: [] }
+      ]
+    },
+    {
+      id: "CORE-012",
+      project: "西山金矿勘探",
+      borehole: "ZK-07",
+      coreBox: "BX-05",
+      depth: "356.8-357.2m",
+      owner: "陈明",
+      status: "待观察",
+      delivery: "部分交付",
+      slices: [
+        { id: "SL-012-A", method: "普通薄片", observation: "可见石英脉型金矿化，黄铁矿稠密浸染", status: "观察", observations: [{id:"OBS-012A", at:"2026-06-09T15:00:00.000Z", lithology:"硅化蚀变花岗岩", minerals:"石英55%+长石20%+黄铁矿18%+自然金0.3%+其他6.7%", texture:"碎裂结构，脉状构造", remark:"石英脉中黄铁矿稠密浸染状分布，可见自然金包裹于黄铁矿中"}], logs: [{ at: "2026-06-05T10:00:00.000Z", step: "取样", note: "石英脉型矿化带" }, { at: "2026-06-06T08:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-07T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-06-08T14:00:00.000Z", step: "染色", note: "" }, { at: "2026-06-09T15:00:00.000Z", step: "观察", note: "可见石英脉型金矿化" }] },
+        { id: "SL-012-B", method: "光片", observation: "黄铁矿与毒砂共生，自然金呈裂隙金", status: "观察", observations: [{id:"OBS-012B", at:"2026-06-16T14:30:00.000Z", lithology:"硅化黄铁矿化蚀变岩", minerals:"黄铁矿40%+毒砂15%+石英25%+自然金0.4%+其他19.6%", texture:"自形-半自形晶粒结构，浸染状构造", remark:"黄铁矿与毒砂紧密共生，自然金沿黄铁矿裂隙分布，粒径0.02-0.06mm"}], logs: [{ at: "2026-06-11T09:00:00.000Z", step: "取样", note: "黄铁矿化蚀变带" }, { at: "2026-06-12T08:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-13T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-06-15T08:00:00.000Z", step: "染色", note: "" }, { at: "2026-06-16T14:30:00.000Z", step: "观察", note: "黄铁矿与毒砂共生，见自然金" }] },
+        { id: "SL-012-C", method: "茜素红染色", observation: "方解石脉穿插，见碳酸盐化蚀变", status: "观察", observations: [{id:"OBS-012C", at:"2026-06-18T10:00:00.000Z", lithology:"碳酸盐化蚀变岩", minerals:"方解石45%+石英25%+黄铁矿15%+绢云母10%+其他5%", texture:"交代残余结构，网脉状构造", remark:"方解石呈网脉状穿插，茜素红染色显深红色，见碳酸盐化交代现象"}], logs: [{ at: "2026-06-12T10:00:00.000Z", step: "取样", note: "碳酸盐脉发育带" }, { at: "2026-06-13T09:00:00.000Z", step: "切割", note: "" }, { at: "2026-06-14T10:00:00.000Z", step: "研磨", note: "" }, { at: "2026-06-17T08:00:00.000Z", step: "染色", note: "茜素红+铁氰化钾联合染色" }, { at: "2026-06-18T10:00:00.000Z", step: "观察", note: "方解石脉穿插，见碳酸盐化蚀变" }] },
+        { id: "SL-012-D", method: "油浸薄片", observation: "", status: "研磨", logs: [{ at: "2026-06-14T10:00:00.000Z", step: "取样", note: "用于精确测折射率的部位" }, { at: "2026-06-15T09:00:00.000Z", step: "切割", note: "" }], observations: [] }
       ]
     }
   ]
@@ -1234,6 +1325,45 @@ const page = `<!doctype html>
     .audit-obs-diff-old { color: var(--danger); background: #fdf2ef; padding: 2px 6px; border-radius: 3px; text-decoration: line-through; }
     .audit-obs-diff-arrow { color: var(--muted); flex-shrink: 0; }
     .audit-obs-diff-new { color: var(--accent); background: #edf5e8; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+    .dashboard-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
+    .dashboard-kpi { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; text-align: center; }
+    .dashboard-kpi strong { display: block; font-size: 28px; }
+    .dashboard-kpi span { font-size: 12px; color: var(--muted); }
+    .dashboard-kpi-undelivered strong { color: var(--muted); }
+    .dashboard-kpi-partial strong { color: #856404; }
+    .dashboard-kpi-delivered strong { color: var(--accent); }
+    .dashboard-kpi-total strong { color: var(--ink); }
+    .dashboard-group { margin-bottom: 20px; }
+    .dashboard-group-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+    .dashboard-group-header h2 { margin: 0; font-size: 17px; }
+    .dashboard-group-count { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; min-width: 24px; text-align: center; }
+    .dashboard-group-count-undelivered { background: #eef1ea; color: var(--muted); }
+    .dashboard-group-count-partial { background: #fff3cd; color: #856404; }
+    .dashboard-group-count-delivered { background: #edf5e8; color: var(--accent); }
+    .dashboard-group-empty { padding: 30px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; font-size: 13px; }
+    .dashboard-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .dashboard-table th, .dashboard-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+    .dashboard-table th { background: #f5f8f0; font-weight: 600; color: var(--stone); position: sticky; top: 0; }
+    .dashboard-table tr:hover td { background: #fafcf6; }
+    .dashboard-table td.num { text-align: center; font-variant-numeric: tabular-nums; }
+    .dashboard-slice-progress { display: inline-flex; align-items: center; gap: 6px; }
+    .dashboard-slice-bar { display: inline-block; width: 60px; height: 8px; background: #eef1ea; border-radius: 4px; overflow: hidden; vertical-align: middle; }
+    .dashboard-slice-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .dashboard-slice-bar-fill-undelivered { background: var(--muted); }
+    .dashboard-slice-bar-fill-partial { background: #f0ad4e; }
+    .dashboard-slice-bar-fill-delivered { background: var(--accent); }
+    .dashboard-latest-delivery { font-size: 12px; color: var(--stone); }
+    .dashboard-latest-delivery b { color: var(--accent); }
+    .dashboard-latest-delivery .delivery-type-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px; }
+    .delivery-type-tag-full { background: #edf5e8; color: var(--accent); }
+    .delivery-type-tag-partial { background: #fff3cd; color: #856404; }
+    .dashboard-no-delivery { font-size: 12px; color: var(--muted); font-style: italic; }
+    .dashboard-remaining-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .dashboard-remaining-zero { background: #edf5e8; color: var(--accent); }
+    .dashboard-remaining-has { background: #fff3cd; color: #856404; }
+    .dashboard-remaining-all { background: #eef1ea; color: var(--muted); }
+    @media (max-width: 950px) { .dashboard-summary { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 500px) { .dashboard-summary { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -1253,6 +1383,7 @@ const page = `<!doctype html>
         <button type="button" class="view-tab active" data-view="cards">样本卡片</button>
         <button type="button" class="view-tab" data-view="workbench">实验室工作台</button>
         <button type="button" class="view-tab" data-view="deliveries">历史交付包</button>
+        <button type="button" class="view-tab" data-view="delivery-dashboard">交付状态看板</button>
         <button type="button" class="view-tab" data-view="stats">制片耗时统计</button>
         <button type="button" class="view-tab" data-view="audit">变更审计</button>
       </div>
@@ -1427,6 +1558,10 @@ const page = `<!doctype html>
         </div>
         <div class="result-count" id="deliveries-count"></div>
         <div class="deliveries-list" id="deliveries"></div>
+      </div>
+      <div id="view-delivery-dashboard" class="view-content">
+        <div class="dashboard-summary" id="dashboard-summary"></div>
+        <div class="dashboard-groups" id="dashboard-groups"></div>
       </div>
       <div id="view-stats" class="view-content">
         <div class="filter-panel">
@@ -1657,7 +1792,7 @@ const page = `<!doctype html>
         tabs.forEach(tab => {
           const view = tab.dataset.view;
           let visible = true;
-          if (view === "deliveries") visible = canDeliveryView;
+          if (view === "deliveries" || view === "delivery-dashboard") visible = canDeliveryView;
           if (view === "stats") visible = canStatsView;
           if (view === "audit") visible = canAuditView;
           if (view === "cards" || view === "workbench") visible = canViewSamples;
@@ -1674,6 +1809,7 @@ const page = `<!doctype html>
       const canAuditView = roleHasPerm(PERMISSIONS.AUDIT_VIEW);
 
       if (activeView === "deliveries" && canDeliveryView) return "deliveries";
+      if (activeView === "delivery-dashboard" && canDeliveryView) return "delivery-dashboard";
       if (activeView === "stats" && canStatsView) return "stats";
       if (activeView === "audit" && canAuditView) return "audit";
       if ((activeView === "cards" || activeView === "workbench") && canViewSamples) return activeView;
@@ -1955,6 +2091,8 @@ const page = `<!doctype html>
       if (targetEl) targetEl.classList.add("active");
       if (view === "deliveries") {
         renderDeliveries();
+      } else if (view === "delivery-dashboard") {
+        loadAndRenderDeliveryDashboard();
       } else if (view === "stats") {
         loadAndRenderStats();
       } else if (view === "audit") {
@@ -3384,6 +3522,110 @@ const page = `<!doctype html>
       }).join("");
     }
 
+    async function loadAndRenderDeliveryDashboard() {
+      if (!roleHasPerm(PERMISSIONS.DELIVERY_VIEW)) return;
+      const summaryEl = document.querySelector("#dashboard-summary");
+      const groupsEl = document.querySelector("#dashboard-groups");
+      if (summaryEl) summaryEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);">加载中...</div>';
+      try {
+        const data = await api("/api/delivery-dashboard");
+        renderDeliveryDashboard(data);
+      } catch (err) {
+        console.error("Failed to load delivery dashboard:", err);
+        if (groupsEl) groupsEl.innerHTML = '<div class="dashboard-group-empty">加载交付看板失败：' + escapeHtml(err.message || "未知错误") + '</div>';
+      }
+    }
+
+    function renderDeliveryDashboard(data) {
+      const summaryEl = document.querySelector("#dashboard-summary");
+      const groupsEl = document.querySelector("#dashboard-groups");
+      const s = data.summary || {};
+      const gs = s.groupStats || {};
+      if (summaryEl) {
+        summaryEl.innerHTML =
+          '<div class="dashboard-kpi dashboard-kpi-undelivered"><strong>' + (s.undelivered || 0) + '</strong><span>未交付样本</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">切片 ' + (gs["未交付"]?.totalSlices || 0) + ' · 可交付 ' + (gs["未交付"]?.deliverableSlices || 0) + '</div></div>' +
+          '<div class="dashboard-kpi dashboard-kpi-partial"><strong>' + (s.partial || 0) + '</strong><span>部分交付样本</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">已交 ' + (gs["部分交付"]?.deliveredSlices || 0) + ' · 可再交 ' + (gs["部分交付"]?.deliverableSlices || 0) + ' · 包数 ' + (gs["部分交付"]?.deliveryCount || 0) + '</div></div>' +
+          '<div class="dashboard-kpi dashboard-kpi-delivered"><strong>' + (s.delivered || 0) + '</strong><span>已交付样本</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">切片 ' + (gs["已交付"]?.totalSlices || 0) + ' · 包数 ' + (gs["已交付"]?.deliveryCount || 0) + '</div></div>' +
+          '<div class="dashboard-kpi dashboard-kpi-total"><strong>' + (s.total || 0) + '</strong><span>样本总数</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">切片 ' + (s.totalSlices || 0) + ' · 已交 ' + (s.totalDeliveredSlices || 0) + ' · 待可交 ' + (s.totalDeliverableSlices || 0) + '</div></div>' +
+          '<div class="dashboard-kpi"><strong>' + (s.totalDeliveries || 0) + '</strong><span>累计交付包</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">全项目统计</div></div>';
+      }
+      if (!groupsEl) return;
+      const groups = data.groups || {};
+      const groupConfigs = [
+        { key: "未交付", label: "未交付", countCls: "dashboard-group-count-undelivered", barCls: "dashboard-slice-bar-fill-undelivered" },
+        { key: "部分交付", label: "部分交付", countCls: "dashboard-group-count-partial", barCls: "dashboard-slice-bar-fill-partial" },
+        { key: "已交付", label: "已交付", countCls: "dashboard-group-count-delivered", barCls: "dashboard-slice-bar-fill-delivered" }
+      ];
+      let html = "";
+      groupConfigs.forEach(cfg => {
+        const items = groups[cfg.key] || [];
+        const gStat = gs[cfg.key] || {};
+        html += '<div class="dashboard-group">';
+        html += '<div class="dashboard-group-header"><h2>' + cfg.label + '</h2><span class="dashboard-group-count ' + cfg.countCls + '">' + items.length + ' 样本</span>';
+        if (gStat.totalSlices) {
+          html += '<span style="font-size:12px;color:var(--muted);margin-left:8px;">共 ' + gStat.totalSlices + ' 切片 · 已交付 ' + gStat.deliveredSlices + ' · 可再交付 ' + gStat.deliverableSlices + ' · 累计 ' + gStat.deliveryCount + ' 包</span>';
+        }
+        html += '</div>';
+        if (!items.length) {
+          html += '<div class="dashboard-group-empty">暂无' + cfg.label + '的样本</div>';
+        } else {
+          html += '<table class="dashboard-table"><thead><tr><th>样本编号</th><th>项目</th><th>钻孔/箱号</th><th>深度</th><th>负责人</th><th>制片状态</th><th>切片交付进度</th><th>剩余切片</th><th>累计交付</th><th>最近交付包</th></tr></thead><tbody>';
+          items.forEach(item => {
+            const total = item.totalSlices || 0;
+            const delivered = item.deliveredSlices || 0;
+            const remainingTotal = item.remainingTotal ?? (total - delivered);
+            const remainingDeliverable = item.remainingDeliverable ?? 0;
+            const remainingInProgress = item.remainingInProgress ?? remainingTotal;
+            const pct = total > 0 ? Math.round(delivered / total * 100) : 0;
+            let remainingHtml = "";
+            if (remainingTotal === 0) {
+              remainingHtml = '<span class="dashboard-remaining-badge dashboard-remaining-zero">全部完成</span>';
+            } else {
+              const parts = [];
+              if (remainingDeliverable > 0) {
+                parts.push('<span class="dashboard-remaining-badge dashboard-remaining-has" title="已完成观察可立即交付">可交付 ' + remainingDeliverable + '</span>');
+              }
+              if (remainingInProgress > 0) {
+                parts.push('<span class="dashboard-remaining-badge dashboard-remaining-all" title="尚在制片流程中">制片中 ' + remainingInProgress + '</span>');
+              }
+              remainingHtml = parts.join(" ");
+            }
+            const deliveryCountHtml = item.deliveryCount
+              ? '<div><b style="color:var(--accent);">' + item.deliveryCount + '</b> 包' +
+                (item.firstDeliveredAt ? '<div style="font-size:11px;color:var(--muted);">首包: ' + formatObsDate(item.firstDeliveredAt) + '</div>' : '') +
+                (item.lastDeliveredAt && item.deliveryCount > 1 ? '<div style="font-size:11px;color:var(--muted);">尾包: ' + formatObsDate(item.lastDeliveredAt) + '</div>' : '') +
+                '</div>'
+              : '<span class="dashboard-no-delivery">—</span>';
+            const latestHtml = item.latestDelivery
+              ? '<div class="dashboard-latest-delivery">' +
+                '<div><b>' + item.latestDelivery.id + '</b>' +
+                '<span class="delivery-type-tag ' + (item.latestDelivery.deliveryType === "partial" ? "delivery-type-tag-partial" : "delivery-type-tag-full") + '">' + (item.latestDelivery.deliveryType === "partial" ? "部分交付" : "全部交付") + '</span>' +
+                '</div>' +
+                '<div style="font-size:11px;color:var(--muted);">' + formatObsDate(item.latestDelivery.deliveredAt) + '</div>' +
+                '<div style="font-size:11px;">👤 ' + item.latestDelivery.deliveredBy + ' → 🏛 ' + item.latestDelivery.receivingUnit + '</div>' +
+                '<div style="font-size:11px;">📦 ' + item.latestDelivery.sliceCount + ' 片' + (item.latestDelivery.remark ? ' · ' + escapeHtml(item.latestDelivery.remark) : '') + '</div>' +
+                '</div>'
+              : '<span class="dashboard-no-delivery">—</span>';
+            html += '<tr>' +
+              '<td><b>' + item.sampleId + '</b></td>' +
+              '<td>' + item.project + '</td>' +
+              '<td>' + item.borehole + ' / ' + item.coreBox + '</td>' +
+              '<td>' + item.depth + '</td>' +
+              '<td>' + item.owner + '</td>' +
+              '<td><span class="pill">' + item.status + '</span></td>' +
+              '<td class="num"><div class="dashboard-slice-progress"><span class="dashboard-slice-bar"><span class="dashboard-slice-bar-fill ' + cfg.barCls + '" style="width:' + pct + '%;"></span></span> ' + delivered + '/' + total + ' <span style="color:var(--muted);font-size:11px;">(' + pct + '%)</span></div></td>' +
+              '<td class="num">' + remainingHtml + '</td>' +
+              '<td class="num">' + deliveryCountHtml + '</td>' +
+              '<td>' + latestHtml + '</td>' +
+              '</tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+      });
+      groupsEl.innerHTML = html;
+    }
+
     async function loadMethodDict() {
       try {
         methodDict = await api("/api/methods");
@@ -3912,6 +4154,8 @@ const page = `<!doctype html>
         renderWorkbench();
       } else if (activeView === "deliveries") {
         renderDeliveries();
+      } else if (activeView === "delivery-dashboard") {
+        loadAndRenderDeliveryDashboard();
       } else if (activeView === "stats") {
         loadAndRenderStats();
       } else if (activeView === "audit") {
@@ -5273,6 +5517,79 @@ const server = http.createServer(async (req, res) => {
       
       await saveDb(db);
       return sendJson(res, 201, delivery);
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/delivery-dashboard") {
+      if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_VIEW, res)) return;
+      const groups = { "未交付": [], "部分交付": [], "已交付": [] };
+      const groupStats = {
+        "未交付": { sampleCount: 0, totalSlices: 0, deliveredSlices: 0, deliverableSlices: 0, deliveryCount: 0 },
+        "部分交付": { sampleCount: 0, totalSlices: 0, deliveredSlices: 0, deliverableSlices: 0, deliveryCount: 0 },
+        "已交付": { sampleCount: 0, totalSlices: 0, deliveredSlices: 0, deliverableSlices: 0, deliveryCount: 0 }
+      };
+      db.samples.forEach(sample => {
+        const deliveredSliceIds = getDeliveredSliceIds(db, sample.id);
+        const totalSlices = sample.slices.length;
+        const deliveredCount = sample.slices.filter(s => deliveredSliceIds.has(s.id)).length;
+        const remainingTotal = totalSlices - deliveredCount;
+        const undeliveredSlices = sample.slices.filter(s => !deliveredSliceIds.has(s.id));
+        const deliverableCount = undeliveredSlices.filter(s => s.status === "观察" && s.observations && s.observations.length > 0).length;
+        const deliverableList = undeliveredSlices
+          .filter(s => s.status === "观察" && s.observations && s.observations.length > 0)
+          .map(s => ({ id: s.id, method: s.method }));
+        const inProgressCount = undeliveredSlices.filter(s => s.status !== "观察" || !s.observations || s.observations.length === 0).length;
+        const sampleDeliveries = db.deliveries
+          .filter(d => d.sampleId === sample.id)
+          .sort((a, b) => new Date(b.deliveredAt) - new Date(a.deliveredAt));
+        const latestDelivery = sampleDeliveries.length > 0 ? {
+          id: sampleDeliveries[0].id,
+          deliveredAt: sampleDeliveries[0].deliveredAt,
+          deliveredBy: sampleDeliveries[0].deliveredBy,
+          receivingUnit: sampleDeliveries[0].receivingUnit,
+          sliceCount: sampleDeliveries[0].slices.length,
+          deliveryType: sampleDeliveries[0].deliveryType || "full",
+          remark: sampleDeliveries[0].remark || ""
+        } : null;
+        const entry = {
+          sampleId: sample.id,
+          project: sample.project,
+          borehole: sample.borehole,
+          coreBox: sample.coreBox,
+          depth: sample.depth,
+          owner: sample.owner,
+          status: sample.status,
+          totalSlices,
+          deliveredSlices: deliveredCount,
+          remainingTotal,
+          remainingDeliverable: deliverableCount,
+          remainingInProgress: inProgressCount,
+          deliverableList,
+          latestDelivery,
+          deliveryCount: sampleDeliveries.length,
+          firstDeliveredAt: sampleDeliveries.length > 0 ? sampleDeliveries[sampleDeliveries.length - 1].deliveredAt : null,
+          lastDeliveredAt: sampleDeliveries.length > 0 ? sampleDeliveries[0].deliveredAt : null
+        };
+        const key = sample.delivery || "未交付";
+        const targetKey = groups[key] ? key : "未交付";
+        groups[targetKey].push(entry);
+        groupStats[targetKey].sampleCount++;
+        groupStats[targetKey].totalSlices += totalSlices;
+        groupStats[targetKey].deliveredSlices += deliveredCount;
+        groupStats[targetKey].deliverableSlices += deliverableCount;
+        groupStats[targetKey].deliveryCount += sampleDeliveries.length;
+      });
+      const summary = {
+        undelivered: groups["未交付"].length,
+        partial: groups["部分交付"].length,
+        delivered: groups["已交付"].length,
+        total: db.samples.length,
+        totalSlices: db.samples.reduce((s, sm) => s + sm.slices.length, 0),
+        totalDeliveredSlices: Object.values(groupStats).reduce((s, g) => s + g.deliveredSlices, 0),
+        totalDeliverableSlices: Object.values(groupStats).reduce((s, g) => s + g.deliverableSlices, 0),
+        totalDeliveries: db.deliveries.length,
+        groupStats
+      };
+      return sendJson(res, 200, { groups, summary });
     }
 
     const listDeliveriesMatch = url.pathname.match(/^\/api\/deliveries$/);
