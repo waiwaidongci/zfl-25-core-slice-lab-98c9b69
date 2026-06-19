@@ -5464,7 +5464,9 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: "请填写接收单位" });
       }
       
-      const isFullDelivery = slicesToDeliver.length === selectableSlices.length;
+      const totalSliceCount = sample.slices.length;
+      const deliveredBeforeCount = deliveredSliceIds.size;
+      const isFullDelivery = deliveredBeforeCount + slicesToDeliver.length === totalSliceCount;
       const deliveryType = isFullDelivery ? "full" : "partial";
       
       const delivery = {

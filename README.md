@@ -164,12 +164,12 @@ curl -s -X GET 'http://localhost:3025/api/delivery-dashboard' \
     "partial": 2,
     "delivered": 2,
     "total": 12,
-    "totalSlices": 17,
+    "totalSlices": 18,
     "totalDeliveredSlices": 5,
-    "totalDeliverableSlices": 3,
+    "totalDeliverableSlices": 1,
     "totalDeliveries": 5,
     "groupStats": {
-      "未交付": { "sampleCount":8, "totalSlices":10, "deliveredSlices":0, "deliverableSlices":2, "deliveryCount":0 },
+      "未交付": { "sampleCount":8, "totalSlices":9, "deliveredSlices":0, "deliverableSlices":0, "deliveryCount":0 },
       "部分交付": { "sampleCount":2, "totalSlices":7, "deliveredSlices":3, "deliverableSlices":1, "deliveryCount":3 },
       "已交付": { "sampleCount":2, "totalSlices":2, "deliveredSlices":2, "deliverableSlices":0, "deliveryCount":2 }
     }
