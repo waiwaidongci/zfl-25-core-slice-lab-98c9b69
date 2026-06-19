@@ -373,7 +373,7 @@ test("审计diff模块 - migrateAuditEntry 迁移审计记录", () => {
   assert.equal(changed, true);
   assert.ok(entry.id);
   assert.equal(entry.operator, "unknown");
-  assert.equal(entry.operatorName, "未知");
+  assert.equal(entry.operatorName, "unknown");
   assert.equal(entry.sourceApi, "unknown");
 
   const goodEntry = {
@@ -402,7 +402,7 @@ test("审计diff模块 - migrateAuditEntry 迁移审计记录", () => {
   };
   migrateAuditEntry(emptyStrOperatorEntry);
   assert.equal(emptyStrOperatorEntry.operator, "unknown");
-  assert.equal(emptyStrOperatorEntry.operatorName, "未知");
+  assert.equal(emptyStrOperatorEntry.operatorName, "unknown");
 });
 
 test("制片方法字典模块 - defaultMethods 默认方法", () => {
