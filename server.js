@@ -122,6 +122,7 @@ const defaultMethods = [
 const seed = {
   methods: defaultMethods,
   auditLog: [],
+  importDrafts: [],
   deliveries: [
     {
       id: "DLV-001",
@@ -457,6 +458,10 @@ async function loadDb() {
   }
   if (!Array.isArray(db.auditLog)) {
     db.auditLog = [];
+    needSave = true;
+  }
+  if (!Array.isArray(db.importDrafts)) {
+    db.importDrafts = [];
     needSave = true;
   }
   db.samples.forEach(sample => {
@@ -1170,6 +1175,21 @@ const page = `<!doctype html>
     .csv-import-result.error h3 { color: var(--danger); }
     .csv-import-result ul { margin: 8px 0 0; padding-left: 20px; }
     .csv-import-result li { font-size: 13px; margin: 3px 0; }
+    .csv-drafts-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .csv-drafts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .csv-drafts-header h3 { margin: 0; font-size: 15px; color: var(--stone); }
+    .csv-drafts-count { background: var(--accent); color: #fff; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+    .csv-draft-list { display: flex; flex-direction: column; gap: 8px; }
+    .csv-draft-item { background: #fafcf7; border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+    .csv-draft-main { display: flex; flex-direction: column; gap: 4px; }
+    .csv-draft-filename { font-weight: 700; font-size: 14px; color: var(--ink); }
+    .csv-draft-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .csv-draft-meta span { white-space: nowrap; }
+    .csv-draft-issues { font-size: 12px; color: #856404; background: #fff8e6; border: 1px solid #ffe08a; border-radius: 4px; padding: 4px 8px; margin-top: 4px; }
+    .csv-draft-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: start; }
+    .csv-draft-actions button { padding: 6px 10px; font-size: 12px; }
+    .csv-draft-empty { padding: 30px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 8px; font-size: 13px; }
+    .csv-save-draft-btn { background: #6b7280 !important; color: #fff !important; }
     .stats-overview { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
     .stats-kpi { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; }
     .stats-kpi strong { display:block; font-size:28px; color:var(--accent); }
@@ -1487,7 +1507,16 @@ const page = `<!doctype html>
         <div class="modal-footer" style="margin-top:14px;">
           <button type="button" class="secondary" id="csv-reset-btn" style="display:none;">重新选择</button>
           <button type="button" class="csv-revalidate-btn" id="csv-revalidate-btn" style="display:none;">修正后再校验</button>
+          <button type="button" class="csv-save-draft-btn" id="csv-save-draft-btn" style="display:none;">💾 存为草稿</button>
           <button type="button" id="csv-import-btn" style="display:none;">确认导入</button>
+        </div>
+        <div class="csv-drafts-section" id="csv-drafts-section">
+          <div class="csv-drafts-header">
+            <h3>📋 导入草稿<span class="csv-drafts-count" id="csv-drafts-count" style="display:none;">0</span></h3>
+          </div>
+          <div class="csv-draft-list" id="csv-draft-list">
+            <div class="csv-draft-empty" id="csv-draft-empty">暂无保存的导入草稿</div>
+          </div>
         </div>
       </div>
     </div>
@@ -4625,6 +4654,7 @@ const page = `<!doctype html>
     });
     let csvPreviewData = null;
     let csvFile = null;
+    let currentDraftId = null;
 
     function switchImportTab(tabName) {
       document.querySelectorAll(".import-tab").forEach(tab => {
@@ -4648,6 +4678,7 @@ const page = `<!doctype html>
     const csvRevalidateBtn = document.querySelector("#csv-revalidate-btn");
     const csvImportResult = document.querySelector("#csv-import-result");
     const csvDownloadTemplateBtn = document.querySelector("#csv-download-template");
+    const csvSaveDraftBtn = document.querySelector("#csv-save-draft-btn");
 
     csvDownloadTemplateBtn.onclick = () => {
       window.location.href = "/api/csv/template";
@@ -4683,6 +4714,7 @@ const page = `<!doctype html>
 
     function handleCSVFile(file) {
       csvFile = file;
+      currentDraftId = null;
       const reader = new FileReader();
       reader.onload = async e => {
         const text = e.target.result;
@@ -4699,6 +4731,8 @@ const page = `<!doctype html>
           csvPreviewArea.style.display = "block";
           csvImportBtn.style.display = result.validRows > 0 ? "inline-block" : "none";
           csvRevalidateBtn.style.display = result.invalidRows > 0 ? "inline-block" : "none";
+          csvSaveDraftBtn.style.display = "inline-block";
+          csvSaveDraftBtn.textContent = "💾 存为草稿";
           csvResetBtn.style.display = "inline-block";
           csvImportResult.style.display = "none";
         } catch (err) {
@@ -4820,6 +4854,7 @@ const page = `<!doctype html>
         renderCSVPreview(result);
         csvImportBtn.style.display = result.validRows > 0 ? "inline-block" : "none";
         csvRevalidateBtn.style.display = result.invalidRows > 0 ? "inline-block" : "none";
+        csvSaveDraftBtn.style.display = "inline-block";
         csvImportResult.style.display = "none";
       } catch (err) {
         alert("重新校验失败：" + err.message);
@@ -4832,12 +4867,15 @@ const page = `<!doctype html>
     csvResetBtn.onclick = () => {
       csvPreviewData = null;
       csvFile = null;
+      currentDraftId = null;
       csvFileInput.value = "";
       csvUploadArea.style.display = "block";
       csvFileInfo.style.display = "none";
       csvPreviewArea.style.display = "none";
       csvImportBtn.style.display = "none";
       csvRevalidateBtn.style.display = "none";
+      csvSaveDraftBtn.style.display = "none";
+      csvSaveDraftBtn.textContent = "💾 存为草稿";
       csvResetBtn.style.display = "none";
       csvImportResult.style.display = "none";
     };
@@ -4856,8 +4894,16 @@ const page = `<!doctype html>
         renderImportResult(result);
         csvImportBtn.style.display = "none";
         csvRevalidateBtn.style.display = "none";
+        csvSaveDraftBtn.style.display = "none";
         csvResetBtn.textContent = "继续导入";
+        if (currentDraftId) {
+          try {
+            await api("/api/csv/drafts/" + currentDraftId, { method: "DELETE" });
+            currentDraftId = null;
+          } catch (e) {}
+        }
         await load();
+        loadDrafts();
       } catch (err) {
         const msg = err.message;
         csvImportResult.style.display = "block";
@@ -4891,6 +4937,192 @@ const page = `<!doctype html>
         html += '</ul></div>';
       }
       csvImportResult.innerHTML = html;
+    }
+
+    csvSaveDraftBtn.onclick = async () => {
+      const editedRows = collectEditedRows();
+      if (!editedRows || editedRows.length === 0) {
+        alert("没有可保存的预览数据");
+        return;
+      }
+      let issueSummary = "";
+      if (csvPreviewData && csvPreviewData.result) {
+        const r = csvPreviewData.result;
+        const parts = [];
+        if (r.validRows > 0) parts.push(r.validRows + " 行有效");
+        if (r.invalidRows > 0) parts.push(r.invalidRows + " 行有误");
+        issueSummary = parts.join("，") || "未校验";
+      } else {
+        issueSummary = "未校验";
+      }
+      const fileName = csvFile ? csvFile.name : "";
+      try {
+        csvSaveDraftBtn.disabled = true;
+        csvSaveDraftBtn.textContent = "保存中...";
+        if (currentDraftId) {
+          await api("/api/csv/drafts/" + currentDraftId, {
+            method: "PUT",
+            body: JSON.stringify({ fileName, rows: editedRows, issueSummary })
+          });
+          alert("草稿已更新！");
+        } else {
+          const draft = await api("/api/csv/drafts", {
+            method: "POST",
+            body: JSON.stringify({ fileName, rows: editedRows, issueSummary })
+          });
+          currentDraftId = draft.id;
+          csvSaveDraftBtn.textContent = "💾 更新草稿";
+          alert("草稿已保存！刷新页面后可从草稿列表恢复继续编辑。");
+        }
+        await loadDrafts();
+      } catch (err) {
+        alert("保存草稿失败：" + err.message);
+      } finally {
+        csvSaveDraftBtn.disabled = false;
+        if (currentDraftId) {
+          csvSaveDraftBtn.textContent = "💾 更新草稿";
+        } else {
+          csvSaveDraftBtn.textContent = "💾 存为草稿";
+        }
+      }
+    };
+
+    async function loadDrafts() {
+      if (!roleHasPerm(PERMISSIONS.CSV_IMPORT)) {
+        document.querySelector("#csv-drafts-section").style.display = "none";
+        return;
+      }
+      document.querySelector("#csv-drafts-section").style.display = "";
+      try {
+        const drafts = await api("/api/csv/drafts");
+        renderDraftList(drafts);
+      } catch (err) {
+        renderDraftList([]);
+      }
+    }
+
+    function renderDraftList(drafts) {
+      const listEl = document.querySelector("#csv-draft-list");
+      const countEl = document.querySelector("#csv-drafts-count");
+
+      if (!drafts || drafts.length === 0) {
+        listEl.innerHTML = '<div class="csv-draft-empty">暂无保存的导入草稿</div>';
+        countEl.style.display = "none";
+        return;
+      }
+
+      countEl.style.display = "inline-block";
+      countEl.textContent = drafts.length;
+
+      let html = "";
+      drafts.forEach(draft => {
+        const createdAt = new Date(draft.createdAt);
+        const timeStr = createdAt.getFullYear() + "-" +
+          String(createdAt.getMonth() + 1).padStart(2, "0") + "-" +
+          String(createdAt.getDate()).padStart(2, "0") + " " +
+          String(createdAt.getHours()).padStart(2, "0") + ":" +
+          String(createdAt.getMinutes()).padStart(2, "0");
+        const rowCount = draft.rows ? draft.rows.length : 0;
+        const fileName = draft.fileName || "未命名文件";
+
+        html += '<div class="csv-draft-item" data-draft-id="' + escapeHtml(draft.id) + '">';
+        html += '<div class="csv-draft-main">';
+        html += '<div class="csv-draft-filename">📄 ' + escapeHtml(fileName) + '</div>';
+        html += '<div class="csv-draft-meta">';
+        html += '<span>📝 ' + rowCount + ' 行数据</span>';
+        html += '<span>🕐 ' + timeStr + '</span>';
+        html += '</div>';
+        if (draft.issueSummary) {
+          html += '<div class="csv-draft-issues">⚠️ ' + escapeHtml(draft.issueSummary) + '</div>';
+        }
+        html += '</div>';
+        html += '<div class="csv-draft-actions">';
+        html += '<button type="button" class="secondary draft-restore-btn" data-draft-id="' + escapeHtml(draft.id) + '">✏️ 继续编辑</button>';
+        html += '<button type="button" class="draft-import-btn" data-draft-id="' + escapeHtml(draft.id) + '">📦 直接导入</button>';
+        html += '<button type="button" class="danger draft-delete-btn" data-draft-id="' + escapeHtml(draft.id) + '" style="padding:6px 10px;font-size:12px;">🗑 删除</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+
+      listEl.innerHTML = html;
+
+      listEl.querySelectorAll(".draft-restore-btn").forEach(btn => {
+        btn.onclick = async () => {
+          const draftId = btn.dataset.draftId;
+          try {
+            const drafts = await api("/api/csv/drafts");
+            const draft = drafts.find(d => d.id === draftId);
+            if (!draft) { alert("草稿不存在或已被删除"); await loadDrafts(); return; }
+            restoreDraftToPreview(draft);
+          } catch (err) {
+            alert("加载草稿失败：" + err.message);
+          }
+        };
+      });
+
+      listEl.querySelectorAll(".draft-import-btn").forEach(btn => {
+        btn.onclick = async () => {
+          const draftId = btn.dataset.draftId;
+          if (!confirm("确认从草稿直接导入吗？导入成功后草稿将被删除。")) return;
+          try {
+            btn.disabled = true;
+            btn.textContent = "导入中...";
+            const result = await api("/api/csv/drafts/" + draftId + "/import", {
+              method: "POST"
+            });
+            renderImportResult(result);
+            if (result.draftDeleted) {
+              await loadDrafts();
+            }
+            await load();
+          } catch (err) {
+            alert("草稿导入失败：" + err.message);
+            btn.disabled = false;
+            btn.textContent = "📦 直接导入";
+          }
+        };
+      });
+
+      listEl.querySelectorAll(".draft-delete-btn").forEach(btn => {
+        btn.onclick = async () => {
+          const draftId = btn.dataset.draftId;
+          if (!confirm("确认删除此草稿？")) return;
+          try {
+            await api("/api/csv/drafts/" + draftId, { method: "DELETE" });
+            await loadDrafts();
+          } catch (err) {
+            alert("删除草稿失败：" + err.message);
+          }
+        };
+      });
+    }
+
+    async function restoreDraftToPreview(draft) {
+      try {
+        const result = await api("/api/csv/revalidate", {
+          method: "POST",
+          body: JSON.stringify({ rows: draft.rows })
+        });
+        csvPreviewData = { editedRows: draft.rows, result };
+        csvFile = draft.fileName ? { name: draft.fileName } : null;
+        currentDraftId = draft.id;
+        renderCSVPreview(result);
+        if (csvFile) {
+          csvFileInfo.style.display = "flex";
+          csvFileInfo.innerHTML = '<span class="filename">📄 ' + escapeHtml(draft.fileName) + '（草稿恢复）</span>';
+        }
+        csvUploadArea.style.display = "none";
+        csvPreviewArea.style.display = "block";
+        csvImportBtn.style.display = result.validRows > 0 ? "inline-block" : "none";
+        csvRevalidateBtn.style.display = result.invalidRows > 0 ? "inline-block" : "none";
+        csvSaveDraftBtn.style.display = "inline-block";
+        csvSaveDraftBtn.textContent = "💾 更新草稿";
+        csvResetBtn.style.display = "inline-block";
+        csvImportResult.style.display = "none";
+        switchImportTab("csv");
+      } catch (err) {
+        alert("恢复草稿预览失败：" + err.message);
+      }
     }
 
     document.querySelector("#add-create-slice").onclick = () => {
@@ -4930,6 +5162,7 @@ const page = `<!doctype html>
       }
     };
     load();
+    loadDrafts();
   </script>
 </body>
 </html>`;
@@ -5984,6 +6217,167 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (err) {
         return sendJson(res, 500, { error: "导入失败：" + err.message });
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/csv/drafts") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      return sendJson(res, 200, db.importDrafts);
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/csv/drafts") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const input = await body(req);
+      const fileName = input.fileName || "";
+      const rows = input.rows || [];
+      const issueSummary = input.issueSummary || "";
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return sendJson(res, 400, { error: "草稿行数据不能为空" });
+      }
+      const draft = {
+        id: "DRAFT-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+        fileName,
+        rows,
+        issueSummary,
+        createdAt: new Date().toISOString()
+      };
+      db.importDrafts.unshift(draft);
+      await saveDb(db);
+      return sendJson(res, 200, draft);
+    }
+
+    if (req.method === "DELETE" && url.pathname.startsWith("/api/csv/drafts/") && !url.pathname.endsWith("/import")) {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const draftId = url.pathname.replace("/api/csv/drafts/", "");
+      const idx = db.importDrafts.findIndex(d => d.id === draftId);
+      if (idx === -1) {
+        return sendJson(res, 404, { error: "草稿不存在" });
+      }
+      db.importDrafts.splice(idx, 1);
+      await saveDb(db);
+      return sendJson(res, 200, { success: true });
+    }
+
+    if (req.method === "PUT" && url.pathname.startsWith("/api/csv/drafts/") && !url.pathname.endsWith("/import")) {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const draftId = url.pathname.replace("/api/csv/drafts/", "");
+      const draft = db.importDrafts.find(d => d.id === draftId);
+      if (!draft) {
+        return sendJson(res, 404, { error: "草稿不存在" });
+      }
+      const input = await body(req);
+      if (input.fileName !== undefined) draft.fileName = input.fileName;
+      if (input.rows !== undefined) {
+        if (!Array.isArray(input.rows) || input.rows.length === 0) {
+          return sendJson(res, 400, { error: "草稿行数据不能为空" });
+        }
+        draft.rows = input.rows;
+      }
+      if (input.issueSummary !== undefined) draft.issueSummary = input.issueSummary;
+      draft.updatedAt = new Date().toISOString();
+      await saveDb(db);
+      return sendJson(res, 200, draft);
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/api/csv/drafts/") && !url.pathname.endsWith("/import")) {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const draftId = url.pathname.replace("/api/csv/drafts/", "");
+      const draft = db.importDrafts.find(d => d.id === draftId);
+      if (!draft) {
+        return sendJson(res, 404, { error: "草稿不存在" });
+      }
+      return sendJson(res, 200, draft);
+    }
+
+    if (req.method === "POST" && url.pathname.startsWith("/api/csv/drafts/") && url.pathname.endsWith("/import")) {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const draftId = url.pathname.replace("/api/csv/drafts/", "").replace("/import", "");
+      const draft = db.importDrafts.find(d => d.id === draftId);
+      if (!draft) {
+        return sendJson(res, 404, { error: "草稿不存在" });
+      }
+      try {
+        const validation = validateCSVImport(draft.rows, db);
+        if (validation.validRows === 0) {
+          return sendJson(res, 400, { error: "草稿中没有可导入的有效数据行，请先编辑修正" });
+        }
+        const sampleData = groupSlicesToSamples(validation.sampleGroups, db);
+        let successSamples = 0;
+        let successSlices = 0;
+        let failedSlices = 0;
+        const results = [];
+
+        sampleData.forEach(item => {
+          if (item.isNew) {
+            const newSample = {
+              id: "CORE-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+              project: item.sampleData.project,
+              borehole: item.sampleData.borehole,
+              coreBox: item.sampleData.coreBox,
+              depth: item.sampleData.depth,
+              owner: item.sampleData.owner,
+              status: "待切割",
+              delivery: "未交付",
+              slices: item.newSlices.map(s => ({
+                id: s.id,
+                method: s.method || "未指定",
+                observation: "",
+                observations: [],
+                status: "取样",
+                logs: [{ at: new Date().toISOString(), step: "取样", note: "从导入草稿创建初始切片任务" }]
+              }))
+            };
+            updateSampleStatus(newSample, db);
+            db.samples.unshift(newSample);
+            recordAudit(db, { sampleId: newSample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/drafts/:id/import", beforeSample: null, afterSample: newSample });
+            successSamples++;
+            successSlices += item.newSlices.length;
+            results.push({ type: "new_sample", sampleId: newSample.id, sliceCount: item.newSlices.length, project: newSample.project });
+          } else {
+            const sample = db.samples.find(s => s.id === item.sampleId);
+            if (sample) {
+              const beforeSample = createSampleSnapshot(sample);
+              item.newSlices.forEach(s => {
+                sample.slices.push({
+                  id: s.id,
+                  method: s.method || "未指定",
+                  observation: "",
+                  observations: [],
+                  status: "取样",
+                  logs: [{ at: new Date().toISOString(), step: "取样", note: "从导入草稿追加切片任务" }]
+                });
+              });
+              updateSampleStatus(sample, db);
+              recordAudit(db, { sampleId: sample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/drafts/:id/import", beforeSample, afterSample: sample });
+              successSlices += item.newSlices.length;
+              results.push({ type: "append_slices", sampleId: sample.id, sliceCount: item.newSlices.length, project: sample.project });
+            }
+          }
+        });
+
+        failedSlices = validation.invalidRows;
+
+        const draftIdx = db.importDrafts.findIndex(d => d.id === draftId);
+        if (draftIdx !== -1) {
+          db.importDrafts.splice(draftIdx, 1);
+        }
+
+        await saveDb(db);
+
+        return sendJson(res, 200, {
+          success: true,
+          totalRows: validation.totalRows,
+          validRows: validation.validRows,
+          invalidRows: validation.invalidRows,
+          successSamples,
+          successSlices,
+          failedSlices,
+          results,
+          validatedRows: validation.validatedRows,
+          draftDeleted: draftIdx !== -1
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: "草稿导入失败：" + err.message });
       }
     }
 

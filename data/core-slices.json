@@ -46,7 +46,71 @@
       "sortOrder": 5
     }
   ],
-  "auditLog": [],
+  "auditLog": [
+    {
+      "id": "AUD-1781851974927-6kzl",
+      "sampleId": "CORE-1781851974927-56jz",
+      "action": "csv:import",
+      "actionLabel": "CSV导入",
+      "operator": "registrar",
+      "operatorName": "样本登记人员",
+      "timestamp": "2026-06-19T06:52:54.927Z",
+      "sourceApi": "POST /api/csv/drafts/:id/import",
+      "note": "新建样本 CORE-1781851974927-56jz（测试项目），含 1 个切片",
+      "beforeSummary": null,
+      "afterSummary": {
+        "id": "CORE-1781851974927-56jz",
+        "project": "测试项目",
+        "borehole": "ZK-01",
+        "coreBox": "BX-01",
+        "depth": "10.0-10.5m",
+        "owner": "张三",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-100-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T06:52:54.927Z",
+              "step": "取样",
+              "note": "从导入草稿创建初始切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-1781851974927-56jz",
+        "project": "测试项目",
+        "borehole": "ZK-01",
+        "coreBox": "BX-01",
+        "depth": "10.0-10.5m",
+        "owner": "张三",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-100-A",
+            "method": "普通薄片",
+            "observation": "",
+            "observations": [],
+            "status": "取样",
+            "logs": [
+              {
+                "at": "2026-06-19T06:52:54.927Z",
+                "step": "取样",
+                "note": "从导入草稿创建初始切片任务"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "deliveries": [
     {
       "id": "DLV-001",
@@ -180,6 +244,32 @@
     }
   ],
   "samples": [
+    {
+      "id": "CORE-1781851974927-56jz",
+      "project": "测试项目",
+      "borehole": "ZK-01",
+      "coreBox": "BX-01",
+      "depth": "10.0-10.5m",
+      "owner": "张三",
+      "status": "制片中",
+      "delivery": "未交付",
+      "slices": [
+        {
+          "id": "SL-100-A",
+          "method": "普通薄片",
+          "observation": "",
+          "observations": [],
+          "status": "取样",
+          "logs": [
+            {
+              "at": "2026-06-19T06:52:54.927Z",
+              "step": "取样",
+              "note": "从导入草稿创建初始切片任务"
+            }
+          ]
+        }
+      ]
+    },
     {
       "id": "CORE-001",
       "project": "东岭铜矿薄片",
@@ -819,6 +909,26 @@
           "observations": []
         }
       ]
+    }
+  ],
+  "importDrafts": [
+    {
+      "id": "DRAFT-1781852491918-rste",
+      "fileName": "updated.csv",
+      "rows": [
+        {
+          "project": "更新项目",
+          "borehole": "ZK-02",
+          "coreBox": "BX-02",
+          "depth": "20-30m",
+          "owner": "李四",
+          "sliceId": "SL-999-B",
+          "method": "茜素红染色"
+        }
+      ],
+      "issueSummary": "1 行有效，0 行有误（已更新）",
+      "createdAt": "2026-06-19T07:01:31.918Z",
+      "updatedAt": "2026-06-19T07:08:44.727Z"
     }
   ]
 }
