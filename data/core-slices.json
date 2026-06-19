@@ -15,12 +15,22 @@
           "method": "普通薄片",
           "observation": "",
           "observations": [],
-          "status": "取样",
+          "status": "研磨",
           "logs": [
             {
               "at": "2026-06-18T11:05:32.614Z",
               "step": "取样",
               "note": "创建初始切片任务"
+            },
+            {
+              "at": "2026-06-19T02:29:05.460Z",
+              "step": "切割",
+              "note": "测试批量推进取样→切割"
+            },
+            {
+              "at": "2026-06-19T02:33:08.488Z",
+              "step": "研磨",
+              "note": "综合测试：批量推进切割→研磨"
             }
           ]
         }
@@ -40,7 +50,7 @@
           "id": "SL-001-A",
           "method": "茜素红染色",
           "observation": "",
-          "status": "研磨",
+          "status": "染色",
           "logs": [
             {
               "at": "2026-06-12T10:00:00.000Z",
@@ -51,6 +61,11 @@
               "at": "2026-06-13T11:20:00.000Z",
               "step": "切割",
               "note": "完成粗切"
+            },
+            {
+              "at": "2026-06-19T02:18:53.933Z",
+              "step": "染色",
+              "note": "测试不同步骤"
             }
           ],
           "observations": []
@@ -71,7 +86,7 @@
           "id": "SL-002-A",
           "method": "普通薄片",
           "observation": "",
-          "status": "研磨",
+          "status": "染色",
           "logs": [
             {
               "at": "2026-06-14T09:00:00.000Z",
@@ -87,6 +102,11 @@
               "at": "2026-06-18T14:55:26.508Z",
               "step": "研磨",
               "note": "切割工序完成，准备研磨"
+            },
+            {
+              "at": "2026-06-19T02:26:47.275Z",
+              "step": "染色",
+              "note": "测试批量推进"
             }
           ],
           "observations": []
@@ -293,7 +313,7 @@
           "id": "SL-006-A",
           "method": "光片",
           "observation": "",
-          "status": "研磨",
+          "status": "染色",
           "logs": [
             {
               "at": "2026-06-15T10:00:00.000Z",
@@ -304,6 +324,11 @@
               "at": "2026-06-18T14:55:26.508Z",
               "step": "研磨",
               "note": "切割工序完成，准备研磨"
+            },
+            {
+              "at": "2026-06-19T02:18:38.333Z",
+              "step": "染色",
+              "note": "测试同步骤批量推进"
             }
           ],
           "observations": []
@@ -312,7 +337,7 @@
           "id": "SL-006-B",
           "method": "普通薄片",
           "observation": "",
-          "status": "研磨",
+          "status": "染色",
           "logs": [
             {
               "at": "2026-06-15T10:00:00.000Z",
@@ -328,6 +353,11 @@
               "at": "2026-06-18T14:55:26.508Z",
               "step": "研磨",
               "note": "切割工序完成，准备研磨"
+            },
+            {
+              "at": "2026-06-19T02:18:38.333Z",
+              "step": "染色",
+              "note": "测试同步骤批量推进"
             }
           ],
           "observations": []
@@ -348,12 +378,22 @@
           "id": "SL-007-A",
           "method": "普通薄片",
           "observation": "",
-          "status": "取样",
+          "status": "研磨",
           "logs": [
             {
               "at": "2026-06-16T09:00:00.000Z",
               "step": "取样",
               "note": "条带状矿石"
+            },
+            {
+              "at": "2026-06-19T02:29:05.460Z",
+              "step": "切割",
+              "note": "测试批量推进取样→切割"
+            },
+            {
+              "at": "2026-06-19T02:33:08.488Z",
+              "step": "研磨",
+              "note": "综合测试：批量推进切割→研磨"
             }
           ],
           "observations": []
@@ -461,7 +501,7 @@
           "id": "SL-010-A",
           "method": "普通薄片",
           "observation": "",
-          "status": "研磨",
+          "status": "染色",
           "logs": [
             {
               "at": "2026-06-13T10:00:00.000Z",
@@ -472,6 +512,11 @@
               "at": "2026-06-14T08:00:00.000Z",
               "step": "切割",
               "note": ""
+            },
+            {
+              "at": "2026-06-19T02:29:24.136Z",
+              "step": "染色",
+              "note": "测试混合错误"
             }
           ],
           "observations": []
@@ -633,6 +678,830 @@
     }
   ],
   "auditLog": [
+    {
+      "id": "AUD-1781836388488-miql",
+      "sampleId": "CORE-007",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:33:08.488Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-007-A，从「切割」推进到「研磨」，批量操作ID：BATCH-1781836388488",
+      "beforeSummary": {
+        "id": "CORE-007",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-15",
+        "depth": "178.5-178.9m",
+        "owner": "王涛",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-007-A",
+            "method": "普通薄片",
+            "status": "切割",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:29:05.460Z",
+              "step": "切割",
+              "note": "测试批量推进取样→切割"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-007",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-15",
+        "depth": "178.5-178.9m",
+        "owner": "王涛",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-007-A",
+            "method": "普通薄片",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:33:08.488Z",
+              "step": "研磨",
+              "note": "综合测试：批量推进切割→研磨"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-007",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-15",
+        "depth": "178.5-178.9m",
+        "owner": "王涛",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-007-A",
+            "method": "普通薄片",
+            "observation": "",
+            "status": "研磨",
+            "logs": [
+              {
+                "at": "2026-06-16T09:00:00.000Z",
+                "step": "取样",
+                "note": "条带状矿石"
+              },
+              {
+                "at": "2026-06-19T02:29:05.460Z",
+                "step": "切割",
+                "note": "测试批量推进取样→切割"
+              },
+              {
+                "at": "2026-06-19T02:33:08.488Z",
+                "step": "研磨",
+                "note": "综合测试：批量推进切割→研磨"
+              }
+            ],
+            "observations": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781836388488-r8q8",
+      "sampleId": "CORE-1781780732614",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:33:08.488Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-020-A，从「切割」推进到「研磨」，批量操作ID：BATCH-1781836388488",
+      "beforeSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "切割",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:29:05.460Z",
+              "step": "切割",
+              "note": "测试批量推进取样→切割"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:33:08.488Z",
+              "step": "研磨",
+              "note": "综合测试：批量推进切割→研磨"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "observation": "",
+            "observations": [],
+            "status": "研磨",
+            "logs": [
+              {
+                "at": "2026-06-18T11:05:32.614Z",
+                "step": "取样",
+                "note": "创建初始切片任务"
+              },
+              {
+                "at": "2026-06-19T02:29:05.460Z",
+                "step": "切割",
+                "note": "测试批量推进取样→切割"
+              },
+              {
+                "at": "2026-06-19T02:33:08.488Z",
+                "step": "研磨",
+                "note": "综合测试：批量推进切割→研磨"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781836164136-0i7i",
+      "sampleId": "CORE-010",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:29:24.136Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-010-A，从「研磨」推进到「染色」，批量操作ID：BATCH-1781836164136",
+      "beforeSummary": {
+        "id": "CORE-010",
+        "project": "南山铁矿",
+        "borehole": "ZK-31",
+        "coreBox": "BX-07",
+        "depth": "45.8-46.2m",
+        "owner": "李雪",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-010-A",
+            "method": "普通薄片",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-14T08:00:00.000Z",
+              "step": "切割",
+              "note": ""
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-010",
+        "project": "南山铁矿",
+        "borehole": "ZK-31",
+        "coreBox": "BX-07",
+        "depth": "45.8-46.2m",
+        "owner": "李雪",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-010-A",
+            "method": "普通薄片",
+            "status": "染色",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:29:24.136Z",
+              "step": "染色",
+              "note": "测试混合错误"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-010",
+        "project": "南山铁矿",
+        "borehole": "ZK-31",
+        "coreBox": "BX-07",
+        "depth": "45.8-46.2m",
+        "owner": "李雪",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-010-A",
+            "method": "普通薄片",
+            "observation": "",
+            "status": "染色",
+            "logs": [
+              {
+                "at": "2026-06-13T10:00:00.000Z",
+                "step": "取样",
+                "note": "磁铁矿带"
+              },
+              {
+                "at": "2026-06-14T08:00:00.000Z",
+                "step": "切割",
+                "note": ""
+              },
+              {
+                "at": "2026-06-19T02:29:24.136Z",
+                "step": "染色",
+                "note": "测试混合错误"
+              }
+            ],
+            "observations": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781836145460-2rj1",
+      "sampleId": "CORE-007",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:29:05.460Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-007-A，从「取样」推进到「切割」，批量操作ID：BATCH-1781836145460",
+      "beforeSummary": {
+        "id": "CORE-007",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-15",
+        "depth": "178.5-178.9m",
+        "owner": "王涛",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-007-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-16T09:00:00.000Z",
+              "step": "取样",
+              "note": "条带状矿石"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-007",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-15",
+        "depth": "178.5-178.9m",
+        "owner": "王涛",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-007-A",
+            "method": "普通薄片",
+            "status": "切割",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:29:05.460Z",
+              "step": "切割",
+              "note": "测试批量推进取样→切割"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-007",
+        "project": "北山铅锌矿",
+        "borehole": "ZK-22",
+        "coreBox": "BX-15",
+        "depth": "178.5-178.9m",
+        "owner": "王涛",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-007-A",
+            "method": "普通薄片",
+            "observation": "",
+            "status": "切割",
+            "logs": [
+              {
+                "at": "2026-06-16T09:00:00.000Z",
+                "step": "取样",
+                "note": "条带状矿石"
+              },
+              {
+                "at": "2026-06-19T02:29:05.460Z",
+                "step": "切割",
+                "note": "测试批量推进取样→切割"
+              }
+            ],
+            "observations": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781836145460-au9n",
+      "sampleId": "CORE-1781780732614",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:29:05.460Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-020-A，从「取样」推进到「切割」，批量操作ID：BATCH-1781836145460",
+      "beforeSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "取样",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T11:05:32.614Z",
+              "step": "取样",
+              "note": "创建初始切片任务"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "status": "切割",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:29:05.460Z",
+              "step": "切割",
+              "note": "测试批量推进取样→切割"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-1781780732614",
+        "project": "测试项目",
+        "borehole": "ZK-001",
+        "coreBox": "BX-01",
+        "depth": "100-102m",
+        "owner": "测试人",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-020-A",
+            "method": "普通薄片",
+            "observation": "",
+            "observations": [],
+            "status": "切割",
+            "logs": [
+              {
+                "at": "2026-06-18T11:05:32.614Z",
+                "step": "取样",
+                "note": "创建初始切片任务"
+              },
+              {
+                "at": "2026-06-19T02:29:05.460Z",
+                "step": "切割",
+                "note": "测试批量推进取样→切割"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781836007275-u5pw",
+      "sampleId": "CORE-002",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:26:47.275Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-002-A，从「研磨」推进到「染色」，批量操作ID：BATCH-1781836007275",
+      "beforeSummary": {
+        "id": "CORE-002",
+        "project": "东岭铜矿薄片",
+        "borehole": "ZK-17",
+        "coreBox": "BX-10",
+        "depth": "132.1-132.5m",
+        "owner": "陆川",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-002-A",
+            "method": "普通薄片",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T14:55:26.508Z",
+              "step": "研磨",
+              "note": "切割工序完成，准备研磨"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-002",
+        "project": "东岭铜矿薄片",
+        "borehole": "ZK-17",
+        "coreBox": "BX-10",
+        "depth": "132.1-132.5m",
+        "owner": "陆川",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-002-A",
+            "method": "普通薄片",
+            "status": "染色",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:26:47.275Z",
+              "step": "染色",
+              "note": "测试批量推进"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-002",
+        "project": "东岭铜矿薄片",
+        "borehole": "ZK-17",
+        "coreBox": "BX-10",
+        "depth": "132.1-132.5m",
+        "owner": "陆川",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-002-A",
+            "method": "普通薄片",
+            "observation": "",
+            "status": "染色",
+            "logs": [
+              {
+                "at": "2026-06-14T09:00:00.000Z",
+                "step": "取样",
+                "note": "选取围岩段"
+              },
+              {
+                "at": "2026-06-18T14:54:41.406Z",
+                "step": "切割",
+                "note": "完成取样，准备切割"
+              },
+              {
+                "at": "2026-06-18T14:55:26.508Z",
+                "step": "研磨",
+                "note": "切割工序完成，准备研磨"
+              },
+              {
+                "at": "2026-06-19T02:26:47.275Z",
+                "step": "染色",
+                "note": "测试批量推进"
+              }
+            ],
+            "observations": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781835533933-mhun",
+      "sampleId": "CORE-001",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:18:53.933Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 1 个切片：SL-001-A，从「研磨」推进到「染色」，批量操作ID：BATCH-1781835533933",
+      "beforeSummary": {
+        "id": "CORE-001",
+        "project": "东岭铜矿薄片",
+        "borehole": "ZK-17",
+        "coreBox": "BX-09",
+        "depth": "128.4-128.8m",
+        "owner": "陆川",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-001-A",
+            "method": "茜素红染色",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-13T11:20:00.000Z",
+              "step": "切割",
+              "note": "完成粗切"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-001",
+        "project": "东岭铜矿薄片",
+        "borehole": "ZK-17",
+        "coreBox": "BX-09",
+        "depth": "128.4-128.8m",
+        "owner": "陆川",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 1,
+        "sliceStatuses": [
+          {
+            "id": "SL-001-A",
+            "method": "茜素红染色",
+            "status": "染色",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:18:53.933Z",
+              "step": "染色",
+              "note": "测试不同步骤"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-001",
+        "project": "东岭铜矿薄片",
+        "borehole": "ZK-17",
+        "coreBox": "BX-09",
+        "depth": "128.4-128.8m",
+        "owner": "陆川",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-001-A",
+            "method": "茜素红染色",
+            "observation": "",
+            "status": "染色",
+            "logs": [
+              {
+                "at": "2026-06-12T10:00:00.000Z",
+                "step": "取样",
+                "note": "截取含矿化条带位置"
+              },
+              {
+                "at": "2026-06-13T11:20:00.000Z",
+                "step": "切割",
+                "note": "完成粗切"
+              },
+              {
+                "at": "2026-06-19T02:18:53.933Z",
+                "step": "染色",
+                "note": "测试不同步骤"
+              }
+            ],
+            "observations": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "AUD-1781835518333-scao",
+      "sampleId": "CORE-006",
+      "action": "step:batch-advance",
+      "actionLabel": "批量推进步骤",
+      "operator": "producer",
+      "operatorName": "制片人员",
+      "timestamp": "2026-06-19T02:18:38.333Z",
+      "sourceApi": "POST /api/slices/batch-advance",
+      "note": "批量推进 2 个切片：SL-006-A、SL-006-B，从「研磨」推进到「染色」，批量操作ID：BATCH-1781835518333",
+      "beforeSummary": {
+        "id": "CORE-006",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-06",
+        "coreBox": "BX-02",
+        "depth": "312.4-312.8m",
+        "owner": "李雪",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 2,
+        "sliceStatuses": [
+          {
+            "id": "SL-006-A",
+            "method": "光片",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T14:55:26.508Z",
+              "step": "研磨",
+              "note": "切割工序完成，准备研磨"
+            },
+            "lastObservation": null
+          },
+          {
+            "id": "SL-006-B",
+            "method": "普通薄片",
+            "status": "研磨",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-18T14:55:26.508Z",
+              "step": "研磨",
+              "note": "切割工序完成，准备研磨"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "afterSummary": {
+        "id": "CORE-006",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-06",
+        "coreBox": "BX-02",
+        "depth": "312.4-312.8m",
+        "owner": "李雪",
+        "status": "制片中",
+        "delivery": "未交付",
+        "sliceCount": 2,
+        "sliceStatuses": [
+          {
+            "id": "SL-006-A",
+            "method": "光片",
+            "status": "染色",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:18:38.333Z",
+              "step": "染色",
+              "note": "测试同步骤批量推进"
+            },
+            "lastObservation": null
+          },
+          {
+            "id": "SL-006-B",
+            "method": "普通薄片",
+            "status": "染色",
+            "observationCount": 0,
+            "lastLog": {
+              "at": "2026-06-19T02:18:38.333Z",
+              "step": "染色",
+              "note": "测试同步骤批量推进"
+            },
+            "lastObservation": null
+          }
+        ]
+      },
+      "snapshot": {
+        "id": "CORE-006",
+        "project": "西山金矿勘探",
+        "borehole": "ZK-06",
+        "coreBox": "BX-02",
+        "depth": "312.4-312.8m",
+        "owner": "李雪",
+        "status": "制片中",
+        "delivery": "未交付",
+        "slices": [
+          {
+            "id": "SL-006-A",
+            "method": "光片",
+            "observation": "",
+            "status": "染色",
+            "logs": [
+              {
+                "at": "2026-06-15T10:00:00.000Z",
+                "step": "取样",
+                "note": "黄铁矿化带"
+              },
+              {
+                "at": "2026-06-18T14:55:26.508Z",
+                "step": "研磨",
+                "note": "切割工序完成，准备研磨"
+              },
+              {
+                "at": "2026-06-19T02:18:38.333Z",
+                "step": "染色",
+                "note": "测试同步骤批量推进"
+              }
+            ],
+            "observations": []
+          },
+          {
+            "id": "SL-006-B",
+            "method": "普通薄片",
+            "observation": "",
+            "status": "染色",
+            "logs": [
+              {
+                "at": "2026-06-15T10:00:00.000Z",
+                "step": "取样",
+                "note": "围岩"
+              },
+              {
+                "at": "2026-06-18T14:54:41.407Z",
+                "step": "切割",
+                "note": "完成取样，准备切割"
+              },
+              {
+                "at": "2026-06-18T14:55:26.508Z",
+                "step": "研磨",
+                "note": "切割工序完成，准备研磨"
+              },
+              {
+                "at": "2026-06-19T02:18:38.333Z",
+                "step": "染色",
+                "note": "测试同步骤批量推进"
+              }
+            ],
+            "observations": []
+          }
+        ]
+      }
+    },
     {
       "id": "AUD-1781794526508-b1tl",
       "sampleId": "CORE-006",
