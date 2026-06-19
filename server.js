@@ -1051,6 +1051,12 @@ const page = `<!doctype html>
     .csv-preview-table tr.row-warning td { background: #fff8e6; }
     .csv-preview-table td.cell-error { background: #fde8e4; color: var(--danger); }
     .csv-preview-table td.cell-warning { background: #fff3cd; }
+    .csv-preview-table td.cell-editable { padding: 2px 4px; }
+    .csv-preview-table td.cell-editable input { width: 100%; border: 1px solid var(--line); border-radius: 3px; padding: 3px 5px; font: inherit; font-size: 12px; background: #fff; }
+    .csv-preview-table td.cell-editable input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(82,111,67,0.15); }
+    .csv-preview-table tr.row-error td.cell-editable input { background: #fff5f3; }
+    .csv-preview-table td.cell-editable input.input-error { border-color: var(--danger); background: #fef2f0; }
+    .csv-revalidate-btn { background: #e8a830 !important; color: #fff !important; }
     .csv-error-badge { display: inline-block; background: var(--danger); color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px; }
     .csv-warn-badge { display: inline-block; background: #f0ad4e; color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px; }
     .csv-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
@@ -1349,6 +1355,7 @@ const page = `<!doctype html>
         <div id="csv-import-result" style="display:none;"></div>
         <div class="modal-footer" style="margin-top:14px;">
           <button type="button" class="secondary" id="csv-reset-btn" style="display:none;">重新选择</button>
+          <button type="button" class="csv-revalidate-btn" id="csv-revalidate-btn" style="display:none;">修正后再校验</button>
           <button type="button" id="csv-import-btn" style="display:none;">确认导入</button>
         </div>
       </div>
@@ -4394,6 +4401,7 @@ const page = `<!doctype html>
     const csvPreviewArea = document.querySelector("#csv-preview-area");
     const csvImportBtn = document.querySelector("#csv-import-btn");
     const csvResetBtn = document.querySelector("#csv-reset-btn");
+    const csvRevalidateBtn = document.querySelector("#csv-revalidate-btn");
     const csvImportResult = document.querySelector("#csv-import-result");
     const csvDownloadTemplateBtn = document.querySelector("#csv-download-template");
 
@@ -4446,6 +4454,7 @@ const page = `<!doctype html>
           csvUploadArea.style.display = "none";
           csvPreviewArea.style.display = "block";
           csvImportBtn.style.display = result.validRows > 0 ? "inline-block" : "none";
+          csvRevalidateBtn.style.display = result.invalidRows > 0 ? "inline-block" : "none";
           csvResetBtn.style.display = "inline-block";
           csvImportResult.style.display = "none";
         } catch (err) {
@@ -4479,32 +4488,32 @@ const page = `<!doctype html>
         if (row.hasError) rowClass = "row-error";
         else if (row.hasWarning) rowClass = "row-warning";
 
-        html += '<tr class="' + rowClass + '">';
+        html += '<tr class="' + rowClass + '" data-row-index="' + (row.rowNum - 2) + '">';
         html += '<td>' + row.rowNum + '</td>';
 
-        const sampleIdDisplay = d.sampleId ? d.sampleId : '<span class="meta">自动生成</span>';
-        html += '<td class="' + (row.warnings.some(w => w.includes("样本编号")) ? 'cell-warning' : '') + '">' + sampleIdDisplay + '</td>';
+        const sampleIdWarning = row.warnings.some(w => w.includes("样本编号"));
+        html += '<td class="cell-editable ' + (sampleIdWarning ? 'cell-warning' : '') + '"><input type="text" data-field="sampleId" value="' + (d.sampleId || '') + '" placeholder="自动生成"></td>';
 
-        const projectClass = !d.project ? 'cell-error' : '';
-        html += '<td class="' + projectClass + '">' + (d.project || '<span class="meta">空</span>') + '</td>';
+        const projectError = !d.project;
+        html += '<td class="cell-editable ' + (projectError ? 'cell-error' : '') + '"><input type="text" data-field="project" value="' + (d.project || '') + '" class="' + (projectError ? 'input-error' : '') + '"></td>';
 
-        const boreholeClass = !d.borehole ? 'cell-error' : '';
-        html += '<td class="' + boreholeClass + '">' + (d.borehole || '<span class="meta">空</span>') + '</td>';
+        const boreholeError = !d.borehole;
+        html += '<td class="cell-editable ' + (boreholeError ? 'cell-error' : '') + '"><input type="text" data-field="borehole" value="' + (d.borehole || '') + '" class="' + (boreholeError ? 'input-error' : '') + '"></td>';
 
-        const coreBoxClass = !d.coreBox ? 'cell-error' : '';
-        html += '<td class="' + coreBoxClass + '">' + (d.coreBox || '<span class="meta">空</span>') + '</td>';
+        const coreBoxError = !d.coreBox;
+        html += '<td class="cell-editable ' + (coreBoxError ? 'cell-error' : '') + '"><input type="text" data-field="coreBox" value="' + (d.coreBox || '') + '" class="' + (coreBoxError ? 'input-error' : '') + '"></td>';
 
-        const depthClass = !d.depth || row.errors.some(e => e.includes("深度")) ? 'cell-error' : '';
-        html += '<td class="' + depthClass + '">' + (d.depth || '<span class="meta">空</span>') + '</td>';
+        const depthError = !d.depth || row.errors.some(e => e.includes("深度"));
+        html += '<td class="cell-editable ' + (depthError ? 'cell-error' : '') + '"><input type="text" data-field="depth" value="' + (d.depth || '') + '" placeholder="如 128.4-128.8m" class="' + (depthError ? 'input-error' : '') + '"></td>';
 
-        const ownerClass = !d.owner ? 'cell-error' : '';
-        html += '<td class="' + ownerClass + '">' + (d.owner || '<span class="meta">空</span>') + '</td>';
+        const ownerError = !d.owner;
+        html += '<td class="cell-editable ' + (ownerError ? 'cell-error' : '') + '"><input type="text" data-field="owner" value="' + (d.owner || '') + '" class="' + (ownerError ? 'input-error' : '') + '"></td>';
 
-        const sliceIdClass = !d.sliceId || row.errors.some(e => e.includes("切片编号")) ? 'cell-error' : '';
-        html += '<td class="' + sliceIdClass + '">' + (d.sliceId || '<span class="meta">空</span>') + '</td>';
+        const sliceIdError = !d.sliceId || row.errors.some(e => e.includes("切片编号"));
+        html += '<td class="cell-editable ' + (sliceIdError ? 'cell-error' : '') + '"><input type="text" data-field="sliceId" value="' + (d.sliceId || '') + '" placeholder="如 SL-001-A" class="' + (sliceIdError ? 'input-error' : '') + '"></td>';
 
-        const methodClass = !d.method ? 'cell-error' : '';
-        html += '<td class="' + methodClass + '">' + (d.method || '<span class="meta">空</span>') + '</td>';
+        const methodError = !d.method;
+        html += '<td class="cell-editable ' + (methodError ? 'cell-error' : '') + '"><input type="text" data-field="method" value="' + (d.method || '') + '" class="' + (methodError ? 'input-error' : '') + '"></td>';
 
         let statusHtml = "";
         if (row.hasError) {
@@ -4541,6 +4550,41 @@ const page = `<!doctype html>
       issuesList.innerHTML = issuesHtml;
     }
 
+    function collectEditedRows() {
+      const rows = [];
+      const trs = document.querySelectorAll("#csv-preview-container .csv-preview-table tbody tr");
+      trs.forEach(tr => {
+        const row = {};
+        tr.querySelectorAll("input[data-field]").forEach(input => {
+          row[input.dataset.field] = input.value.trim();
+        });
+        rows.push(row);
+      });
+      return rows;
+    }
+
+    csvRevalidateBtn.onclick = async () => {
+      csvRevalidateBtn.disabled = true;
+      csvRevalidateBtn.textContent = "校验中...";
+      try {
+        const editedRows = collectEditedRows();
+        const result = await api("/api/csv/revalidate", {
+          method: "POST",
+          body: JSON.stringify({ rows: editedRows })
+        });
+        csvPreviewData = { editedRows, result };
+        renderCSVPreview(result);
+        csvImportBtn.style.display = result.validRows > 0 ? "inline-block" : "none";
+        csvRevalidateBtn.style.display = result.invalidRows > 0 ? "inline-block" : "none";
+        csvImportResult.style.display = "none";
+      } catch (err) {
+        alert("重新校验失败：" + err.message);
+      } finally {
+        csvRevalidateBtn.disabled = false;
+        csvRevalidateBtn.textContent = "修正后再校验";
+      }
+    };
+
     csvResetBtn.onclick = () => {
       csvPreviewData = null;
       csvFile = null;
@@ -4549,6 +4593,7 @@ const page = `<!doctype html>
       csvFileInfo.style.display = "none";
       csvPreviewArea.style.display = "none";
       csvImportBtn.style.display = "none";
+      csvRevalidateBtn.style.display = "none";
       csvResetBtn.style.display = "none";
       csvImportResult.style.display = "none";
     };
@@ -4559,12 +4604,14 @@ const page = `<!doctype html>
       try {
         csvImportBtn.disabled = true;
         csvImportBtn.textContent = "导入中...";
-        const result = await api("/api/csv/import", {
+        const editedRows = collectEditedRows();
+        const result = await api("/api/csv/import-rows", {
           method: "POST",
-          body: JSON.stringify({ csvText: csvPreviewData.text })
+          body: JSON.stringify({ rows: editedRows })
         });
         renderImportResult(result);
         csvImportBtn.style.display = "none";
+        csvRevalidateBtn.style.display = "none";
         csvResetBtn.textContent = "继续导入";
         await load();
       } catch (err) {
@@ -5392,6 +5439,126 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (err) {
         return sendJson(res, 500, { error: "CSV解析失败：" + err.message });
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/csv/revalidate") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const input = await body(req);
+      const editedRows = input.rows || [];
+      if (!Array.isArray(editedRows) || editedRows.length === 0) {
+        return sendJson(res, 400, { error: "请提供有效的行数据" });
+      }
+      try {
+        const result = validateCSVImport(editedRows, db);
+        return sendJson(res, 200, {
+          totalRows: result.totalRows,
+          validRows: result.validRows,
+          invalidRows: result.invalidRows,
+          validatedRows: result.validatedRows,
+          sampleGroupCount: result.sampleGroups.length,
+          newSampleCount: result.sampleGroups.filter(g => !g.sampleId).length,
+          existingSampleCount: result.sampleGroups.filter(g => g.sampleId).length
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: "重新校验失败：" + err.message });
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/csv/import-rows") {
+      if (!requirePermission(currentRole, PERMISSIONS.CSV_IMPORT, res)) return;
+      const input = await body(req);
+      const editedRows = input.rows || [];
+      if (!Array.isArray(editedRows) || editedRows.length === 0) {
+        return sendJson(res, 400, { error: "请提供有效的行数据" });
+      }
+      try {
+        const validation = validateCSVImport(editedRows, db);
+        if (validation.validRows === 0) {
+          return sendJson(res, 400, { error: "没有可导入的有效数据行" });
+        }
+
+        const sampleData = groupSlicesToSamples(validation.sampleGroups, db);
+        let successSamples = 0;
+        let successSlices = 0;
+        let failedSlices = 0;
+        const results = [];
+
+        sampleData.forEach(item => {
+          if (item.isNew) {
+            const newSample = {
+              id: "CORE-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+              project: item.sampleData.project,
+              borehole: item.sampleData.borehole,
+              coreBox: item.sampleData.coreBox,
+              depth: item.sampleData.depth,
+              owner: item.sampleData.owner,
+              status: "待切割",
+              delivery: "未交付",
+              slices: item.newSlices.map(s => ({
+                id: s.id,
+                method: s.method || "未指定",
+                observation: "",
+                observations: [],
+                status: "取样",
+                logs: [{ at: new Date().toISOString(), step: "取样", note: "CSV批量导入创建初始切片任务" }]
+              }))
+            };
+            updateSampleStatus(newSample, db);
+            db.samples.unshift(newSample);
+            recordAudit(db, { sampleId: newSample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/import-rows", beforeSample: null, afterSample: newSample });
+            successSamples++;
+            successSlices += item.newSlices.length;
+            results.push({
+              type: "new_sample",
+              sampleId: newSample.id,
+              sliceCount: item.newSlices.length,
+              project: newSample.project
+            });
+          } else {
+            const sample = db.samples.find(s => s.id === item.sampleId);
+            if (sample) {
+              const beforeSample = createSampleSnapshot(sample);
+              item.newSlices.forEach(s => {
+                sample.slices.push({
+                  id: s.id,
+                  method: s.method || "未指定",
+                  observation: "",
+                  observations: [],
+                  status: "取样",
+                  logs: [{ at: new Date().toISOString(), step: "取样", note: "CSV批量导入追加切片任务" }]
+                });
+              });
+              updateSampleStatus(sample, db);
+              recordAudit(db, { sampleId: sample.id, action: "csv:import", operator: currentRole, sourceApi: "POST /api/csv/import-rows", beforeSample, afterSample: sample });
+              successSlices += item.newSlices.length;
+              results.push({
+                type: "append_slices",
+                sampleId: sample.id,
+                sliceCount: item.newSlices.length,
+                project: sample.project
+              });
+            }
+          }
+        });
+
+        failedSlices = validation.invalidRows;
+
+        await saveDb(db);
+
+        return sendJson(res, 200, {
+          success: true,
+          totalRows: validation.totalRows,
+          validRows: validation.validRows,
+          invalidRows: validation.invalidRows,
+          successSamples,
+          successSlices,
+          failedSlices,
+          results,
+          validatedRows: validation.validatedRows
+        });
+      } catch (err) {
+        return sendJson(res, 500, { error: "导入失败：" + err.message });
       }
     }
 
