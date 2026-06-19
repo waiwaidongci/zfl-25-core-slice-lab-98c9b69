@@ -4,26 +4,62 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  SLICE_ID_PATTERN,
+  DEPTH_PATTERN,
+  validateSliceId,
+  validateSlices,
+  getAllSliceIds,
+  getAllSampleIds,
+  validateDepth,
+  parseCSV,
+  normalizeHeader,
+  validateCSVImport,
+  groupSlicesToSamples
+} from "./lib/csvParser.js";
+
+import {
+  statuses,
+  deliveryStatuses,
+  taskSteps,
+  getDeliveredSliceIds,
+  updateSampleStatus,
+  createSampleSnapshot,
+  sampleSummary,
+  migrateSample,
+  migrateDelivery
+} from "./lib/sampleStatus.js";
+
+import { computeDeliveryDashboard } from "./lib/deliveryStats.js";
+
+import {
+  ACTION_LABELS,
+  OBS_FIELDS,
+  OBS_FIELD_LABELS,
+  ROLE_INFO,
+  compareObservations,
+  describeDiff,
+  recordAudit,
+  migrateAuditEntry
+} from "./lib/auditDiff.js";
+
+import {
+  defaultMethods,
+  sortMethods,
+  setDefaultMethod,
+  ensureDefaultMethod,
+  syncUsedMethods
+} from "./lib/methodDict.js";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH || join(__dirname, "data", "core-slices.json");
 const port = Number(process.env.PORT || 3025);
-const statuses = ["待切割", "制片中", "待观察", "已交付"];
-const deliveryStatuses = ["未交付", "部分交付", "已交付"];
-const taskSteps = ["取样", "切割", "研磨", "染色", "观察"];
-const SLICE_ID_PATTERN = /^SL-\d+-[A-Za-z]+$/;
 
 const ROLES = {
   REGISTRAR: "registrar",
   PRODUCER: "producer",
   OBSERVER: "observer",
   DELIVERER: "deliverer"
-};
-
-const ROLE_INFO = {
-  [ROLES.REGISTRAR]: { name: "样本登记人员", desc: "负责创建样本、录入切片任务、批量导入" },
-  [ROLES.PRODUCER]: { name: "制片人员", desc: "负责推进制片工序：取样、切割、研磨、染色" },
-  [ROLES.OBSERVER]: { name: "观察人员", desc: "负责填写观察结果、归档观察记录" },
-  [ROLES.DELIVERER]: { name: "交付人员", desc: "负责生成交付包、查看历史交付记录" }
 };
 
 const PERMISSIONS = {
@@ -110,14 +146,6 @@ function getRoleFromRequest(req) {
   }
   return null;
 }
-
-const defaultMethods = [
-  { id: "M-001", name: "普通薄片", description: "标准岩矿薄片制片，厚度0.03mm", enabled: true, isDefault: true, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 1 },
-  { id: "M-002", name: "茜素红染色", description: "碳酸盐矿物染色，区分方解石/白云石", enabled: true, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 2 },
-  { id: "M-003", name: "光片", description: "不透明矿物光片制片，用于反光显微镜观察", enabled: true, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 3 },
-  { id: "M-004", name: "油浸薄片", description: "油浸法制备薄片，用于精确测定矿物折射率", enabled: true, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 4 },
-  { id: "M-005", name: "电子探针片", description: "电子探针显微分析用样品片", enabled: false, isDefault: false, createdAt: "2026-01-01T00:00:00.000Z", sortOrder: 5 }
-];
 
 const seed = {
   methods: defaultMethods,
@@ -389,53 +417,7 @@ const seed = {
   ]
 };
 
-function migrateSample(sample) {
-  let changed = false;
-  if (!sample.id) { sample.id = "CORE-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4); changed = true; }
-  if (!sample.project) { sample.project = "未指定项目"; changed = true; }
-  if (!sample.borehole) { sample.borehole = "未指定"; changed = true; }
-  if (!sample.coreBox) { sample.coreBox = "未指定"; changed = true; }
-  if (!sample.depth) { sample.depth = "0-0m"; changed = true; }
-  if (!sample.owner) { sample.owner = "未指定"; changed = true; }
-  if (!sample.delivery) { sample.delivery = "未交付"; changed = true; }
-  if (!Array.isArray(sample.slices)) { sample.slices = []; changed = true; }
-  sample.slices.forEach(slice => {
-    if (!slice.id) { slice.id = "SL-" + Date.now() + "-" + Math.random().toString(36).substr(2, 2); changed = true; }
-    if (!slice.method) { slice.method = "未指定"; changed = true; }
-    if (typeof slice.observation !== "string") { slice.observation = ""; changed = true; }
-    if (!Array.isArray(slice.observations)) { slice.observations = []; changed = true; }
-    if (!slice.status) { slice.status = "取样"; changed = true; }
-    if (!Array.isArray(slice.logs)) { slice.logs = []; changed = true; }
-    slice.logs.forEach(log => {
-      if (!log.at) { log.at = new Date().toISOString(); changed = true; }
-      if (!log.step) { log.step = "取样"; changed = true; }
-    });
-  });
-  return changed;
-}
 
-function migrateDelivery(delivery) {
-  let changed = false;
-  if (!delivery.id) { delivery.id = "DLV-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4); changed = true; }
-  if (!delivery.deliveredAt) { delivery.deliveredAt = new Date().toISOString(); changed = true; }
-  if (!delivery.deliveredBy) { delivery.deliveredBy = "未指定"; changed = true; }
-  if (!delivery.receivingUnit) { delivery.receivingUnit = "未指定"; changed = true; }
-  if (!delivery.remark) { delivery.remark = ""; changed = true; }
-  if (!Array.isArray(delivery.slices)) { delivery.slices = []; changed = true; }
-  if (!delivery.sampleSnapshot) { delivery.sampleSnapshot = {}; changed = true; }
-  if (!delivery.deliveryType) { delivery.deliveryType = "full"; changed = true; }
-  return changed;
-}
-
-function migrateAuditEntry(entry) {
-  let changed = false;
-  if (!entry.id) { entry.id = "AUD-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4); changed = true; }
-  if (!entry.timestamp) { entry.timestamp = new Date().toISOString(); changed = true; }
-  if (!entry.operator) { entry.operator = "unknown"; changed = true; }
-  if (!entry.operatorName) { entry.operatorName = entry.operator ? (ROLE_INFO[entry.operator]?.name || entry.operator) : "未知"; changed = true; }
-  if (!entry.sourceApi) { entry.sourceApi = "unknown"; changed = true; }
-  return changed;
-}
 
 async function loadDb() {
   if (!existsSync(dbPath)) {
@@ -473,87 +455,19 @@ async function loadDb() {
   db.auditLog.forEach(entry => {
     if (migrateAuditEntry(entry)) needSave = true;
   });
-  const existingMethodNames = new Set(db.methods.map(m => m.name));
-  const usedMethodNames = new Set();
-  db.samples.forEach(sample => {
-    sample.slices.forEach(slice => {
-      if (slice.method && typeof slice.method === "string" && slice.method.trim()) {
-        usedMethodNames.add(slice.method.trim());
-      }
-    });
-  });
-  db.deliveries.forEach(delivery => {
-    delivery.slices.forEach(s => {
-      if (s.method && typeof s.method === "string" && s.method.trim()) {
-        usedMethodNames.add(s.method.trim());
-      }
-    });
-  });
 
-  db.methods.forEach(m => {
-    if (m.isDefault === undefined) {
-      m.isDefault = false;
-      needSave = true;
-    }
-  });
+  const syncResult = syncUsedMethods(db);
+  if (syncResult.needSave) needSave = true;
 
-  const hasDefault = db.methods.some(m => m.isDefault && m.enabled);
-  if (!hasDefault) {
-    const sorted = sortMethods(db.methods.filter(m => m.enabled));
-    if (sorted.length > 0) {
-      sorted[0].isDefault = true;
-      needSave = true;
-    }
+  if (!syncResult.hasDefault) {
+    const ensured = ensureDefaultMethod(db);
+    if (ensured) needSave = true;
   }
 
-  let nextSort = db.methods.length > 0 ? Math.max(...db.methods.map(m => m.sortOrder || 0)) + 1 : 1;
-  usedMethodNames.forEach(name => {
-    if (!existingMethodNames.has(name)) {
-      db.methods.push({
-        id: "M-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
-        name: name,
-        description: "从历史数据自动导入",
-        enabled: true,
-        isDefault: false,
-        createdAt: new Date().toISOString(),
-        sortOrder: nextSort++
-      });
-      needSave = true;
-    }
-  });
   if (needSave) await saveDb(db);
   return db;
 }
 async function saveDb(db) { await writeFile(dbPath, JSON.stringify(db, null, 2)); }
-
-function sortMethods(methods) {
-  return [...methods].sort((a, b) => {
-    const sa = a.sortOrder || 0;
-    const sb = b.sortOrder || 0;
-    if (sa !== sb) return sa - sb;
-    return (a.name || "").localeCompare(b.name || "", "zh");
-  });
-}
-
-function setDefaultMethod(db, methodId) {
-  const method = db.methods.find(m => m.id === methodId);
-  if (!method || !method.enabled) return false;
-  db.methods.forEach(m => { m.isDefault = false; });
-  method.isDefault = true;
-  return true;
-}
-
-function ensureDefaultMethod(db) {
-  const hasDefault = db.methods.some(m => m.isDefault && m.enabled);
-  if (!hasDefault) {
-    const sorted = sortMethods(db.methods.filter(m => m.enabled));
-    if (sorted.length > 0) {
-      sorted[0].isDefault = true;
-      return sorted[0];
-    }
-  }
-  return null;
-}
 
 async function body(req) {
   const chunks = [];
@@ -564,422 +478,8 @@ function sendJson(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data, null, 2));
 }
-function getDeliveredSliceIds(db, sampleId) {
-  const delivered = new Set();
-  db.deliveries.forEach(d => {
-    if (d.sampleId === sampleId) {
-      d.slices.forEach(s => delivered.add(s.id));
-    }
-  });
-  return delivered;
-}
 
-function updateSampleStatus(sample, db) {
-  const deliveredSliceIds = db ? getDeliveredSliceIds(db, sample.id) : new Set();
-  const totalSlices = sample.slices.length;
-  const deliveredSlices = sample.slices.filter(s => deliveredSliceIds.has(s.id)).length;
-  const undeliveredSlices = sample.slices.filter(s => !deliveredSliceIds.has(s.id));
-  const undeliveredStatuses = undeliveredSlices.map(s => s.status);
 
-  if (deliveredSlices > 0 && deliveredSlices === totalSlices) {
-    sample.delivery = "已交付";
-  } else if (deliveredSlices > 0) {
-    sample.delivery = "部分交付";
-  } else {
-    sample.delivery = "未交付";
-  }
-
-  if (sample.delivery === "已交付") {
-    sample.status = "已交付";
-  } else if (undeliveredSlices.length === 0) {
-    sample.status = "待切割";
-  } else if (undeliveredStatuses.some(step => ["取样", "切割", "研磨", "染色"].includes(step))) {
-    sample.status = "制片中";
-  } else if (undeliveredStatuses.every(step => step === "观察")) {
-    sample.status = "待观察";
-  } else {
-    sample.status = "待切割";
-  }
-}
-
-function createSampleSnapshot(sample) {
-  return JSON.parse(JSON.stringify(sample));
-}
-
-function sampleSummary(sample) {
-  return {
-    id: sample.id,
-    project: sample.project,
-    borehole: sample.borehole,
-    coreBox: sample.coreBox,
-    depth: sample.depth,
-    owner: sample.owner,
-    status: sample.status,
-    delivery: sample.delivery,
-    sliceCount: sample.slices.length,
-    sliceStatuses: sample.slices.map(s => ({
-      id: s.id,
-      method: s.method,
-      status: s.status,
-      observationCount: (s.observations || []).length,
-      lastLog: s.logs && s.logs.length ? s.logs[s.logs.length - 1] : null,
-      lastObservation: s.observations && s.observations.length ? s.observations[s.observations.length - 1] : null
-    }))
-  };
-}
-
-const ACTION_LABELS = {
-  "sample:create": "创建样本",
-  "slice:append": "追加切片",
-  "slice:batch": "批量追加切片",
-  "step:advance": "推进步骤",
-  "step:batch-advance": "批量推进步骤",
-  "observation:create": "填写观察结果",
-  "delivery:confirm": "确认交付",
-  "csv:import": "CSV导入",
-  "sample:rollback": "回滚样本"
-};
-
-function describeDiff(beforeSample, afterSample, action) {
-  const parts = [];
-  if (!beforeSample && afterSample) {
-    parts.push(`新建样本 ${afterSample.id}（${afterSample.project}），含 ${afterSample.slices.length} 个切片`);
-    return parts.join("；");
-  }
-  if (!beforeSample || !afterSample) return "";
-  if (action === "sample:rollback") {
-    parts.push(`样本状态从「${beforeSample.status}」回滚至「${afterSample.status}」`);
-    parts.push(`交付状态从「${beforeSample.delivery}」变为「${afterSample.delivery}」`);
-  }
-  if (beforeSample.status !== afterSample.status) {
-    parts.push(`状态：${beforeSample.status} → ${afterSample.status}`);
-  }
-  if (beforeSample.delivery !== afterSample.delivery) {
-    parts.push(`交付：${beforeSample.delivery} → ${afterSample.delivery}`);
-  }
-  if (beforeSample.slices.length !== afterSample.slices.length) {
-    parts.push(`切片数量：${beforeSample.slices.length} → ${afterSample.slices.length}`);
-  }
-  const beforeSliceMap = {};
-  beforeSample.slices.forEach(s => { beforeSliceMap[s.id] = s; });
-  const changedSlices = [];
-  afterSample.slices.forEach(s => {
-    const before = beforeSliceMap[s.id];
-    if (!before) {
-      parts.push(`新增切片 ${s.id}（${s.method}）`);
-    } else {
-      if (before.status !== s.status) {
-        changedSlices.push(`${s.id}：${before.status} → ${s.status}`);
-      }
-      const beforeObsCount = (before.observations || []).length;
-      const afterObsCount = (s.observations || []).length;
-      if (beforeObsCount !== afterObsCount) {
-        parts.push(`切片 ${s.id} 观察记录：${beforeObsCount} → ${afterObsCount} 条`);
-      }
-      const beforeLogCount = (before.logs || []).length;
-      const afterLogCount = (s.logs || []).length;
-      if (beforeLogCount !== afterLogCount) {
-        parts.push(`切片 ${s.id} 步骤日志：${beforeLogCount} → ${afterLogCount} 条`);
-      }
-    }
-  });
-  if (changedSlices.length > 0) {
-    if (action === "step:batch-advance") {
-      parts.push(`批量推进 ${changedSlices.length} 个切片：${changedSlices.join("、")}`);
-    } else if (changedSlices.length === 1) {
-      parts.push(`切片 ${changedSlices[0]}`);
-    } else {
-      changedSlices.forEach(cs => parts.push(`切片 ${cs}`));
-    }
-  }
-  return parts.join("；");
-}
-
-function recordAudit(db, { sampleId, action, operator, sourceApi, beforeSample, afterSample, note, deliverySnapshot }) {
-  const entry = {
-    id: `AUD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-    sampleId,
-    action,
-    actionLabel: ACTION_LABELS[action] || action,
-    operator: operator || "unknown",
-    operatorName: operator ? (ROLE_INFO[operator]?.name || operator) : "未知",
-    timestamp: new Date().toISOString(),
-    sourceApi,
-    note: note || describeDiff(beforeSample, afterSample, action),
-    beforeSummary: beforeSample ? sampleSummary(beforeSample) : null,
-    afterSummary: afterSample ? sampleSummary(afterSample) : null,
-    snapshot: afterSample ? createSampleSnapshot(afterSample) : null
-  };
-  if (deliverySnapshot) entry.deliverySnapshot = JSON.parse(JSON.stringify(deliverySnapshot));
-  db.auditLog.unshift(entry);
-  return entry;
-}
-
-const OBS_FIELDS = ["lithology", "minerals", "texture", "remark"];
-const OBS_FIELD_LABELS = {
-  lithology: "岩性",
-  minerals: "矿物",
-  texture: "结构构造",
-  remark: "备注"
-};
-
-function compareObservations(obsA, obsB) {
-  const changes = [];
-  OBS_FIELDS.forEach(field => {
-    const a = (obsA && obsA[field]) || "";
-    const b = (obsB && obsB[field]) || "";
-    if (a !== b) {
-      changes.push({
-        field,
-        label: OBS_FIELD_LABELS[field],
-        oldValue: a,
-        newValue: b
-      });
-    }
-  });
-  return changes;
-}
-
-function validateSliceId(id, existingIds = []) {
-  const errors = [];
-  if (!id || typeof id !== "string" || id.trim() === "") {
-    errors.push("切片编号不能为空");
-    return errors;
-  }
-  const trimmed = id.trim();
-  if (!SLICE_ID_PATTERN.test(trimmed)) {
-    errors.push(`切片编号 "${trimmed}" 格式异常，正确格式示例：SL-001-A`);
-  }
-  if (existingIds.includes(trimmed)) {
-    errors.push(`切片编号 "${trimmed}" 重复，该编号已存在`);
-  }
-  return errors;
-}
-
-function validateSlices(slices, allExistingSliceIds = []) {
-  const errors = [];
-  const seenIds = [];
-  slices.forEach((slice, index) => {
-    const id = slice && slice.id ? slice.id.trim() : "";
-    const method = slice && slice.method ? slice.method.trim() : "";
-    const currentExisting = [...allExistingSliceIds, ...seenIds];
-    const idErrors = validateSliceId(id, currentExisting);
-    idErrors.forEach(err => errors.push(`第 ${index + 1} 行：${err}`));
-    if (id) seenIds.push(id);
-    if (!method) {
-      errors.push(`第 ${index + 1} 行：染色方法不能为空`);
-    }
-  });
-  return errors;
-}
-
-function getAllSliceIds(db, excludeSampleId = null) {
-  const ids = [];
-  db.samples.forEach(s => {
-    if (excludeSampleId && s.id === excludeSampleId) return;
-    s.slices.forEach(slice => ids.push(slice.id));
-  });
-  return ids;
-}
-
-function getAllSampleIds(db) {
-  return db.samples.map(s => s.id);
-}
-
-const DEPTH_PATTERN = /^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?\s*m?$/i;
-
-function validateDepth(depth) {
-  if (!depth || typeof depth !== "string" || depth.trim() === "") {
-    return false;
-  }
-  return DEPTH_PATTERN.test(depth.trim());
-}
-
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^["']|["']$/g, ""));
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    const values = [];
-    let current = "";
-    let inQuotes = false;
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === "," && !inQuotes) {
-        values.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
-    }
-    values.push(current.trim());
-    const row = {};
-    headers.forEach((h, idx) => {
-      row[h] = values[idx] !== undefined ? values[idx] : "";
-    });
-    rows.push(row);
-  }
-  return { headers, rows };
-}
-
-function normalizeHeader(header) {
-  const map = {
-    "样本编号": "sampleId",
-    "sampleId": "sampleId",
-    "sample_id": "sampleId",
-    "项目": "project",
-    "project": "project",
-    "钻孔编号": "borehole",
-    "钻孔": "borehole",
-    "borehole": "borehole",
-    "岩芯箱号": "coreBox",
-    "箱号": "coreBox",
-    "coreBox": "coreBox",
-    "core_box": "coreBox",
-    "取样深度": "depth",
-    "深度": "depth",
-    "depth": "depth",
-    "负责人": "owner",
-    "owner": "owner",
-    "切片编号": "sliceId",
-    "sliceId": "sliceId",
-    "slice_id": "sliceId",
-    "染色方法": "method",
-    "方法": "method",
-    "method": "method",
-    "制片方法": "method"
-  };
-  return map[header] || header;
-}
-
-function validateCSVImport(rows, db) {
-  const errors = [];
-  const warnings = [];
-  const validatedRows = [];
-  const allExistingSliceIds = getAllSliceIds(db);
-  const allExistingSampleIds = getAllSampleIds(db);
-  const seenSliceIds = [];
-  const sampleGroups = {};
-
-  rows.forEach((row, index) => {
-    const rowNum = index + 2;
-    const rowErrors = [];
-    const rowWarnings = [];
-
-    const project = (row.project || "").trim();
-    const borehole = (row.borehole || "").trim();
-    const coreBox = (row.coreBox || "").trim();
-    const depth = (row.depth || "").trim();
-    const owner = (row.owner || "").trim();
-    const sliceId = (row.sliceId || "").trim();
-    const method = (row.method || "").trim();
-    const sampleId = (row.sampleId || "").trim();
-
-    if (!project) rowErrors.push("项目不能为空");
-    if (!borehole) rowErrors.push("钻孔编号不能为空");
-    if (!coreBox) rowErrors.push("岩芯箱号不能为空");
-    if (!depth) {
-      rowErrors.push("取样深度不能为空");
-    } else if (!validateDepth(depth)) {
-      rowErrors.push("深度格式异常 \"" + depth + "\"，正确格式示例：128.4-128.8m");
-    }
-    if (!owner) rowErrors.push("负责人不能为空");
-    if (!sliceId) {
-      rowErrors.push("切片编号不能为空");
-    } else {
-      if (!SLICE_ID_PATTERN.test(sliceId)) {
-        rowErrors.push("切片编号格式异常 \"" + sliceId + "\"，正确格式示例：SL-001-A");
-      }
-      if (allExistingSliceIds.includes(sliceId)) {
-        rowErrors.push("切片编号 \"" + sliceId + "\" 已存在");
-      }
-      if (seenSliceIds.includes(sliceId)) {
-        rowErrors.push("切片编号 \"" + sliceId + "\" 在CSV中重复");
-      }
-      if (rowErrors.length === 0) seenSliceIds.push(sliceId);
-    }
-    if (!method) rowErrors.push("染色方法不能为空");
-
-    if (sampleId && allExistingSampleIds.includes(sampleId)) {
-      rowWarnings.push("样本编号 \"" + sampleId + "\" 已存在，将追加切片添加到该样本");
-    }
-
-    validatedRows.push({
-      rowNum,
-      data: { project, borehole, coreBox, depth, owner, sliceId, method, sampleId },
-      errors: rowErrors,
-      warnings: rowWarnings,
-      hasError: rowErrors.length > 0,
-      hasWarning: rowWarnings.length > 0
-    });
-
-    const groupKey = sampleId || `${project}|${borehole}|${coreBox}|${depth}|${owner}`;
-    if (!sampleGroups[groupKey]) {
-      sampleGroups[groupKey] = { sampleId, project, borehole, coreBox, depth, owner, slices: [] };
-    }
-    if (!rowErrors.length) {
-      sampleGroups[groupKey].slices.push({ id: sliceId, method });
-    }
-  });
-
-  const validRows = validatedRows.filter(r => !r.hasError);
-  const invalidRows = validatedRows.filter(r => r.hasError);
-
-  return {
-    totalRows: rows.length,
-    validRows: validRows.length,
-    invalidRows: invalidRows.length,
-    validatedRows,
-    sampleGroups: Object.values(sampleGroups),
-    errors,
-    warnings
-  };
-}
-
-function groupSlicesToSamples(groups, db) {
-  const samples = [];
-  const allExistingSliceIds = getAllSliceIds(db);
-  const usedSliceIds = [];
-
-  groups.forEach(group => {
-    if (group.slices.length === 0) return;
-
-    let sample;
-    if (group.sampleId) {
-      sample = db.samples.find(s => s.id === group.sampleId);
-    }
-    if (sample) {
-      const newSlices = group.slices.filter(s => !allExistingSliceIds.includes(s.id) && !usedSliceIds.includes(s.id));
-      newSlices.forEach(s => usedSliceIds.push(s.id));
-      samples.push({
-        isNew: false,
-        sampleId: sample.id,
-        newSlices
-      });
-    } else {
-      const validSlices = group.slices.filter(s => !allExistingSliceIds.includes(s.id) && !usedSliceIds.includes(s.id));
-      validSlices.forEach(s => usedSliceIds.push(s.id));
-      samples.push({
-        isNew: true,
-        sampleData: {
-          project: group.project,
-          borehole: group.borehole,
-          coreBox: group.coreBox,
-          depth: group.depth,
-          owner: group.owner
-        },
-        newSlices: validSlices
-      });
-    }
-  });
-
-  return samples;
-}
 
 const page = `<!doctype html>
 <html lang="zh-CN">
@@ -5757,75 +5257,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/api/delivery-dashboard") {
       if (!requirePermission(currentRole, PERMISSIONS.DELIVERY_VIEW, res)) return;
-      const groups = { "未交付": [], "部分交付": [], "已交付": [] };
-      const groupStats = {
-        "未交付": { sampleCount: 0, totalSlices: 0, deliveredSlices: 0, deliverableSlices: 0, deliveryCount: 0 },
-        "部分交付": { sampleCount: 0, totalSlices: 0, deliveredSlices: 0, deliverableSlices: 0, deliveryCount: 0 },
-        "已交付": { sampleCount: 0, totalSlices: 0, deliveredSlices: 0, deliverableSlices: 0, deliveryCount: 0 }
-      };
-      db.samples.forEach(sample => {
-        const deliveredSliceIds = getDeliveredSliceIds(db, sample.id);
-        const totalSlices = sample.slices.length;
-        const deliveredCount = sample.slices.filter(s => deliveredSliceIds.has(s.id)).length;
-        const remainingTotal = totalSlices - deliveredCount;
-        const undeliveredSlices = sample.slices.filter(s => !deliveredSliceIds.has(s.id));
-        const deliverableCount = undeliveredSlices.filter(s => s.status === "观察" && s.observations && s.observations.length > 0).length;
-        const deliverableList = undeliveredSlices
-          .filter(s => s.status === "观察" && s.observations && s.observations.length > 0)
-          .map(s => ({ id: s.id, method: s.method }));
-        const inProgressCount = undeliveredSlices.filter(s => s.status !== "观察" || !s.observations || s.observations.length === 0).length;
-        const sampleDeliveries = db.deliveries
-          .filter(d => d.sampleId === sample.id)
-          .sort((a, b) => new Date(b.deliveredAt) - new Date(a.deliveredAt));
-        const latestDelivery = sampleDeliveries.length > 0 ? {
-          id: sampleDeliveries[0].id,
-          deliveredAt: sampleDeliveries[0].deliveredAt,
-          deliveredBy: sampleDeliveries[0].deliveredBy,
-          receivingUnit: sampleDeliveries[0].receivingUnit,
-          sliceCount: sampleDeliveries[0].slices.length,
-          deliveryType: sampleDeliveries[0].deliveryType || "full",
-          remark: sampleDeliveries[0].remark || ""
-        } : null;
-        const entry = {
-          sampleId: sample.id,
-          project: sample.project,
-          borehole: sample.borehole,
-          coreBox: sample.coreBox,
-          depth: sample.depth,
-          owner: sample.owner,
-          status: sample.status,
-          totalSlices,
-          deliveredSlices: deliveredCount,
-          remainingTotal,
-          remainingDeliverable: deliverableCount,
-          remainingInProgress: inProgressCount,
-          deliverableList,
-          latestDelivery,
-          deliveryCount: sampleDeliveries.length,
-          firstDeliveredAt: sampleDeliveries.length > 0 ? sampleDeliveries[sampleDeliveries.length - 1].deliveredAt : null,
-          lastDeliveredAt: sampleDeliveries.length > 0 ? sampleDeliveries[0].deliveredAt : null
-        };
-        const key = sample.delivery || "未交付";
-        const targetKey = groups[key] ? key : "未交付";
-        groups[targetKey].push(entry);
-        groupStats[targetKey].sampleCount++;
-        groupStats[targetKey].totalSlices += totalSlices;
-        groupStats[targetKey].deliveredSlices += deliveredCount;
-        groupStats[targetKey].deliverableSlices += deliverableCount;
-        groupStats[targetKey].deliveryCount += sampleDeliveries.length;
-      });
-      const summary = {
-        undelivered: groups["未交付"].length,
-        partial: groups["部分交付"].length,
-        delivered: groups["已交付"].length,
-        total: db.samples.length,
-        totalSlices: db.samples.reduce((s, sm) => s + sm.slices.length, 0),
-        totalDeliveredSlices: Object.values(groupStats).reduce((s, g) => s + g.deliveredSlices, 0),
-        totalDeliverableSlices: Object.values(groupStats).reduce((s, g) => s + g.deliverableSlices, 0),
-        totalDeliveries: db.deliveries.length,
-        groupStats
-      };
-      return sendJson(res, 200, { groups, summary });
+      const dashboard = computeDeliveryDashboard(db);
+      return sendJson(res, 200, dashboard);
     }
 
     const listDeliveriesMatch = url.pathname.match(/^\/api\/deliveries$/);
