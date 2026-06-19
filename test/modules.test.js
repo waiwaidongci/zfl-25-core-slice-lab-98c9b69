@@ -267,12 +267,29 @@ test("样本状态模块 - migrateDelivery 迁移交付记录", () => {
   assert.equal(changed, true);
   assert.ok(delivery.id);
   assert.equal(delivery.deliveryType, "full");
+  assert.equal(delivery.remark, "");
 
   const goodDelivery = {
     id: "DLV-1", deliveredAt: "2026-01-01T00:00:00.000Z", deliveredBy: "test",
     receivingUnit: "test", remark: "", slices: [], sampleSnapshot: {}, deliveryType: "full"
   };
   assert.equal(migrateDelivery(goodDelivery), false);
+
+  const undefinedRemarkDelivery = {
+    id: "DLV-2", deliveredAt: "2026-01-01T00:00:00.000Z", deliveredBy: "test",
+    receivingUnit: "test", slices: [], sampleSnapshot: {}, deliveryType: "full"
+  };
+  const changed3 = migrateDelivery(undefinedRemarkDelivery);
+  assert.equal(changed3, true);
+  assert.equal(undefinedRemarkDelivery.remark, "");
+
+  const nullRemarkDelivery = {
+    id: "DLV-3", deliveredAt: "2026-01-01T00:00:00.000Z", deliveredBy: "test",
+    receivingUnit: "test", remark: null, slices: [], sampleSnapshot: {}, deliveryType: "full"
+  };
+  const changed4 = migrateDelivery(nullRemarkDelivery);
+  assert.equal(changed4, true);
+  assert.equal(nullRemarkDelivery.remark, "");
 });
 
 test("交付统计模块 - computeDeliveryDashboard 计算交付看板", () => {
@@ -355,13 +372,37 @@ test("审计diff模块 - migrateAuditEntry 迁移审计记录", () => {
   const changed = migrateAuditEntry(entry);
   assert.equal(changed, true);
   assert.ok(entry.id);
+  assert.equal(entry.operator, "unknown");
   assert.equal(entry.operatorName, "未知");
+  assert.equal(entry.sourceApi, "unknown");
 
   const goodEntry = {
     id: "AUD-1", timestamp: "2026-01-01T00:00:00.000Z", operator: "registrar",
     operatorName: "样本登记人员", sourceApi: "test"
   };
   assert.equal(migrateAuditEntry(goodEntry), false);
+
+  const unknownRoleEntry = {
+    id: "AUD-2", timestamp: "2026-01-01T00:00:00.000Z", operator: "superadmin",
+    sourceApi: "test"
+  };
+  migrateAuditEntry(unknownRoleEntry);
+  assert.equal(unknownRoleEntry.operatorName, "superadmin");
+
+  const existingNameEntry = {
+    id: "AUD-3", timestamp: "2026-01-01T00:00:00.000Z", operator: "registrar",
+    operatorName: "自定义名称", sourceApi: "test"
+  };
+  migrateAuditEntry(existingNameEntry);
+  assert.equal(existingNameEntry.operatorName, "自定义名称");
+
+  const emptyStrOperatorEntry = {
+    id: "AUD-4", timestamp: "2026-01-01T00:00:00.000Z", operator: "",
+    sourceApi: "test"
+  };
+  migrateAuditEntry(emptyStrOperatorEntry);
+  assert.equal(emptyStrOperatorEntry.operator, "unknown");
+  assert.equal(emptyStrOperatorEntry.operatorName, "未知");
 });
 
 test("制片方法字典模块 - defaultMethods 默认方法", () => {
